@@ -1,0 +1,376 @@
+package pro.horovodovodo4ka.kodable.processor
+
+//import javax.annotation.processing.RoundEnvironment
+import com.google.auto.service.AutoService
+import com.squareup.kotlinpoet.AnnotationSpec
+import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.KModifier.OVERRIDE
+import com.squareup.kotlinpoet.KModifier.PUBLIC
+import com.squareup.kotlinpoet.ParameterizedTypeName
+import com.squareup.kotlinpoet.TypeName
+import com.squareup.kotlinpoet.TypeSpec
+import com.squareup.kotlinpoet.WildcardTypeName
+import com.squareup.kotlinpoet.asClassName
+import com.squareup.kotlinpoet.asTypeName
+import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
+import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
+import me.eugeniomarletti.kotlin.metadata.classKind
+import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
+import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
+import me.eugeniomarletti.kotlin.metadata.shadow.serialization.deserialization.getName
+import me.eugeniomarletti.kotlin.processing.KotlinAbstractProcessor
+import org.jetbrains.annotations.Nullable
+import pro.horovodovodo4ka.kodable.Default
+import pro.horovodovodo4ka.kodable.JsonKoder
+import pro.horovodovodo4ka.kodable.JsonName
+import pro.horovodovodo4ka.kodable.ListDekoder
+import pro.horovodovodo4ka.kodable.ObjectDekoder
+import pro.horovodovodo4ka.kodable.SingleValueDekoder
+import pro.horovodovodo4ka.kodable.core.JSONReader
+import pro.horovodovodo4ka.kodable.core.Kodable
+import pro.horovodovodo4ka.kodable.core.defaults.BooleanKodable
+import pro.horovodovodo4ka.kodable.core.defaults.ByteKodable
+import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
+import pro.horovodovodo4ka.kodable.core.defaults.FloatKodable
+import pro.horovodovodo4ka.kodable.core.defaults.IntKodable
+import pro.horovodovodo4ka.kodable.core.defaults.LongKodable
+import pro.horovodovodo4ka.kodable.core.defaults.NumberKodable
+import pro.horovodovodo4ka.kodable.core.defaults.ShortKodable
+import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
+import javax.annotation.processing.Processor
+import javax.annotation.processing.RoundEnvironment
+import javax.annotation.processing.SupportedOptions
+import javax.annotation.processing.SupportedSourceVersion
+import javax.lang.model.SourceVersion
+import javax.lang.model.element.Element
+import javax.lang.model.element.ElementKind.CLASS
+import javax.lang.model.element.ElementKind.CONSTRUCTOR
+import javax.lang.model.element.ElementKind.FIELD
+import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.TypeElement
+import javax.lang.model.element.VariableElement
+import javax.lang.model.util.ElementFilter
+import javax.tools.Diagnostic
+import kotlin.reflect.KClass
+
+const val KAPT_KOTLIN_GENERATED_OPTION_NAME = "kapt.kotlin.generated"
+const val packageName = "pro.horovodovodo4ka.kodable"
+
+@AutoService(Processor::class)
+@SupportedSourceVersion(SourceVersion.RELEASE_8)
+@SupportedOptions(KAPT_KOTLIN_GENERATED_OPTION_NAME)
+class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
+
+    companion object {
+        val INT_TYPE = Int::class.asClassName()
+        val BYTE_TYPE = Byte::class.asClassName()
+        val BOOLEAN_TYPE = Boolean::class.asClassName()
+        val DOUBLE_TYPE = Double::class.asClassName()
+        val FLOAT_TYPE = Float::class.asClassName()
+        val LONG_TYPE = Long::class.asClassName()
+        val NUMBER_TYPE = Number::class.asClassName()
+        val SHORT_TYPE = Short::class.asClassName()
+        val STRING_TYPE = String::class.asClassName()
+
+        val LIST_TYPE = kotlin.collections.List::class.asClassName()
+
+        private val defaults = mapOf(
+            INT_TYPE to IntKodable::class.asClassName(),
+            STRING_TYPE to StringKodable::class.asClassName(),
+            BYTE_TYPE to ByteKodable::class.asClassName(),
+            BOOLEAN_TYPE to BooleanKodable::class.asClassName(),
+            DOUBLE_TYPE to DoubleKodable::class.asClassName(),
+            FLOAT_TYPE to FloatKodable::class.asClassName(),
+            LONG_TYPE to LongKodable::class.asClassName(),
+            NUMBER_TYPE to NumberKodable::class.asClassName(),
+            SHORT_TYPE to ShortKodable::class.asClassName()
+        )
+    }
+
+    override fun getSupportedAnnotationTypes(): MutableSet<String> {
+        return listOf(
+            ObjectDekoder::class,
+            ListDekoder::class,
+            SingleValueDekoder::class
+        ).map { it.java.canonicalName }.toMutableSet()
+    }
+
+    private val annotationProcessors: Map<KClass<out Annotation>, (Element) -> Unit> = mapOf(
+        ObjectDekoder::class to ::generateObjectDekoder,
+        SingleValueDekoder::class to ::generateValueDekoder
+    )
+
+    override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
+        annotationProcessors.forEach { roundEnv.getElementsAnnotatedWith(it.key.java).forEach(it.value) }
+        return false
+    }
+
+    // objects
+    class ClassMeta(val type: TypeElement, val constructor: ExecutableElement, val typeMeta: KotlinClassMetadata, val constructorMeta: ProtoBuf.Constructor)
+
+    private fun getClassAndCostructor(element: Element): ClassMeta? {
+        val type: TypeElement
+        val constructor: ExecutableElement
+
+        when (element.kind) {
+            CLASS -> {
+                type = element as TypeElement
+                constructor = ElementFilter.constructorsIn(type.enclosedElements).firstOrNull() ?: return null
+            }
+            CONSTRUCTOR -> {
+                constructor = element as ExecutableElement
+                type = element.enclosingElement as TypeElement
+            }
+            else -> return null
+        }
+
+        val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
+        val constructorMeta = constructor.asConstructorOrNull(typeMeta) ?: return null
+
+        return ClassMeta(type, constructor, typeMeta, constructorMeta)
+    }
+
+    inner class PropDesc(parameter: VariableElement, val name: CharSequence) {
+        val jsonName: CharSequence = parameter.getAnnotationsByType(JsonName::class.java).firstOrNull()?.jsonName ?: name
+        val customKoder = parameter.customKoder()
+        val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
+        val nullableSuffix: String = if (nullable) "?" else ""
+        val propertyType: ClassName get() = types.last()
+        val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
+        val koderType: ClassName get() = customKoder ?: kodableFor(propertyType)
+        val listNestingCount: Int get() = types.size - 1
+
+        val types: List<ClassName>
+
+        init {
+            val typeName = parameter.asType().asTypeName()
+            types = mutableListOf<ClassName>().also { unwrapType(typeName, it) }
+        }
+
+        private fun kodableFor(type: ClassName): ClassName = defaults[type] ?: ClassName(type.packageName(), type.simpleName() + "Kodable")
+
+        private fun unwrapType(type: TypeName, result: MutableList<ClassName>) {
+            when (type) {
+                is ParameterizedTypeName -> {
+                    val genericType = fixType(type.rawType)
+                    if (genericType != LIST_TYPE) throw Exception("Only List collections are allowed! $genericType found")
+                    result.add(genericType)
+                    unwrapType(type.typeArguments.first(), result)
+                }
+                is WildcardTypeName -> {
+                    val upperBounds = type.upperBounds.firstOrNull() ?: throw Exception("Only out variance is allowed for collection")
+                    unwrapType(upperBounds, result)
+                }
+                is ClassName -> {
+                    result.add(fixType(type))
+                }
+                else -> {
+                }
+            }
+        }
+
+        private fun fixType(type: ClassName): ClassName = when (type.toString()) {
+            "java.lang.String" -> STRING_TYPE
+            "java.lang.Integer" -> INT_TYPE
+            "java.util.List" -> LIST_TYPE
+            "java.lang.Number" -> NUMBER_TYPE
+            else -> type
+        }
+    }
+
+    private fun ExecutableElement.asConstructorOrNull(meta: KotlinClassMetadata) : ProtoBuf.Constructor? {
+        val sig = jvmMethodSignature
+        return meta.data.classProto.constructorList.firstOrNull {
+            it.getJvmConstructorSignature(meta.data.nameResolver, meta.data.classProto.typeTable) == sig
+        }
+    }
+
+    // enums
+
+    class EnumMeta(val type: TypeElement, val typeMeta: KotlinClassMetadata, val entries: List<ProtoBuf.EnumEntry>, val defaultEntry: ProtoBuf.EnumEntry?)
+
+    private fun getEnumClassAndDefault(element: Element) : EnumMeta? {
+        val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return null
+        val proto = meta.data.classProto
+        if (proto.classKind != ProtoBuf.Class.Kind.ENUM_CLASS) return null
+
+        val nameResolver = meta.data.nameResolver
+
+        val clz = element as TypeElement
+        val default = clz.enclosedElements
+            .firstOrNull { it.getAnnotationsByType(Default::class.java).isNotEmpty() }
+            ?.let { field -> proto.enumEntryList.firstOrNull { field.toString() == nameResolver.getString(it.name) } }!!
+
+        return EnumMeta(element, meta, proto.enumEntryList, default)
+    }
+
+    // region    =========== Value ===========
+
+    private fun generateValueDekoder(element: Element) {
+        generateEnumDekoder(element)
+//        val (classElement, constructor) = getClassAndCostructor(element) ?: return
+    }
+
+
+    fun generateEnumDekoder(element: Element) {
+        val meta = getEnumClassAndDefault(element) ?: return
+        val nameResolver = meta.typeMeta.data.nameResolver
+
+        val clz = meta.type.asClassName()
+        val kodable = clz.kodableName()
+        val kodableType = Kodable::class.asClassName()
+        val readerType = JSONReader::class.asClassName()
+
+        val intrface = ParameterizedTypeName.get(kodableType, clz)
+        val readerInterface = JSONReader::class.asTypeName()
+
+        val newType = TypeSpec
+            .objectBuilder(kodable)
+            .addModifiers(PUBLIC)
+            .addSuperinterface(intrface)
+            .addAnnotation(AnnotationSpec.builder(Suppress::class).addMember("\"UNCHECKED_CAST\"").build())
+            .addFunction(
+                FunSpec
+                    .builder("readValue")
+                    .addModifiers(OVERRIDE)
+                    .addParameter("reader", readerInterface)
+                    .returns(clz)
+                    .apply {
+                        if (meta.defaultEntry != null)
+                            addStatement("return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }", clz)
+                        else
+                            addStatement("return enumValueOf<%T>(reader.readString())", clz)
+                    }
+                    .build()
+            )
+            .build()
+
+        val file = FileSpec
+            .builder(clz.packageName(), clz.simpleName())
+            .addStaticImport("$packageName.core", "defaults.kodable")
+            .addStaticImport(readerType.packageName(), readerType.simpleName())
+            .addStaticImport(clz.packageName(), clz.simpleName())
+            .addType(newType)
+            .addFunction(extFunSpec(clz, kodable))
+            .build()
+
+        val output = generatedDir!!
+        output.mkdir()
+
+        file.writeTo(output)
+    }
+
+    // endregion =========== Value ===========
+
+    // region    =========== Object ===========
+
+
+    private fun generateObjectDekoder(element: Element) {
+        val meta = getClassAndCostructor(element) ?: return
+        val nameResolver = meta.typeMeta.data.nameResolver
+
+        val params = meta.constructorMeta.valueParameterList.mapIndexed { idx, parameter ->
+            val variableElement = meta.constructor.parameters[idx]
+            val name = nameResolver.getName(parameter.name).asString()
+
+            PropDesc(variableElement, name)
+        }
+
+        val clz = meta.type.asClassName()
+        val kodable = clz.kodableName()
+        val kodableType = Kodable::class.asClassName()
+        val readerType = JSONReader::class.asClassName()
+
+        val intrface = ParameterizedTypeName.get(kodableType, clz)
+        val readerInterface = JSONReader::class.asTypeName()
+
+        val kodableImports = mutableListOf<ClassName>()
+
+        val newType = TypeSpec
+            .objectBuilder(kodable)
+            .addModifiers(PUBLIC)
+            .addSuperinterface(intrface)
+            .addAnnotation(AnnotationSpec.builder(Suppress::class).addMember("\"UNCHECKED_CAST\"").build())
+            .addFunction(
+                FunSpec
+                    .builder("readValue")
+                    .addModifiers(OVERRIDE)
+                    .addParameter("reader", readerInterface)
+                    .returns(clz)
+                    .apply {
+                        params.forEach {
+                            addStatement("var ${it.name}: Any? = null")
+                        }
+
+                        addStatement("reader.readElementsFromMap {")
+                        addStatement("when (it) {")
+
+                        params.forEach {
+                            val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
+                            addStatement(""" "${it.jsonName}" -> ${it.name} = ${it.koderType}$lists.readValueOrNull(reader) """)
+                        }
+
+                        addStatement("else -> reader.skipValue()")
+                        addStatement("}")
+                        addStatement("}")
+
+
+                        addStatement("return %T(${params.joinToString(", ") {
+                            "${it.name} = ${it.name} as ${it.propertyNameString}"
+                        }})", clz)
+                    }
+                    .build()
+            )
+            .build()
+
+        val file = FileSpec
+            .builder(clz.packageName(), clz.simpleName())
+            .addStaticImport("$packageName.core", "defaults.kodable")
+            .addStaticImport(readerType.packageName(), readerType.simpleName())
+            .addStaticImport(clz.packageName(), clz.simpleName())
+            .apply {
+                kodableImports.forEach {
+                    addStaticImport(it.packageName(), it.simpleName())
+                }
+            }
+            .addType(newType)
+            .addFunction(extFunSpec(clz, kodable))
+            .build()
+
+        val output = generatedDir!!
+        output.mkdir()
+
+        file.writeTo(output)
+    }
+
+    private fun extFunSpec(type: TypeName, kodableType: ClassName): FunSpec {
+        val kclassType = ParameterizedTypeName.get(KClass::class.asClassName(), type)
+        val kodable = ParameterizedTypeName.get(Kodable::class.asClassName(), type)
+
+        return FunSpec
+            .builder("kodable")
+            .addAnnotation(AnnotationSpec.builder(JvmName::class).addMember("\"${kodableType.simpleName()}_kodable\"").build())
+            .receiver(kclassType)
+            .returns(kodable)
+            .addStatement("return " + kodableType.simpleName())
+            .build()
+    }
+
+    // endregion =========== Object ===========
+
+    private fun printError(message: String) {
+        messager.printMessage(Diagnostic.Kind.ERROR, message)
+    }
+
+    private fun printWarning(message: String) {
+        messager.printMessage(Diagnostic.Kind.MANDATORY_WARNING, message)
+    }
+}
+
+private fun ClassName.kodableName(): ClassName = ClassName(packageName() + ".generated", "${simpleName()}Kodable")
+
+private fun Element.customKoder() =
+    annotationMirrors.firstOrNull { it.annotationType.asTypeName() == JsonKoder::class.asTypeName() }?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) }
