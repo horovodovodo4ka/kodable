@@ -231,7 +231,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .objectBuilder(kodable)
             .addModifiers(PUBLIC)
             .addSuperinterface(intrface)
-            .addAnnotation(AnnotationSpec.builder(Suppress::class).addMember("\"UNCHECKED_CAST\"").build())
             .addFunction(
                 FunSpec
                     .builder("readValue")
