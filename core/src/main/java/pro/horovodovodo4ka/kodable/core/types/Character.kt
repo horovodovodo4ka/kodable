@@ -1,4 +1,4 @@
-package pro.horovodovodo4ka.kodable.core
+package pro.horovodovodo4ka.kodable.core.types
 
 internal object Character {
 
@@ -68,89 +68,89 @@ internal object Character {
         character in 0..0x1F
 
     fun isDigit(character: Int) =
-        character in Digit.zero..Digit.nine
+        character in Character.Digit.zero..Character.Digit.nine
 
     fun isHexDigit(character: Int) =
         when (character) {
-            Digit.zero,
-            Digit.one,
-            Digit.two,
-            Digit.three,
-            Digit.four,
-            Digit.five,
-            Digit.six,
-            Digit.seven,
-            Digit.eight,
-            Digit.nine,
-            Letter.a,
-            Letter.b,
-            Letter.c,
-            Letter.d,
-            Letter.e,
-            Letter.f,
-            Letter.A,
-            Letter.B,
-            Letter.C,
-            Letter.D,
-            Letter.E,
-            Letter.F -> true
+            Character.Digit.zero,
+            Character.Digit.one,
+            Character.Digit.two,
+            Character.Digit.three,
+            Character.Digit.four,
+            Character.Digit.five,
+            Character.Digit.six,
+            Character.Digit.seven,
+            Character.Digit.eight,
+            Character.Digit.nine,
+            Character.Letter.a,
+            Character.Letter.b,
+            Character.Letter.c,
+            Character.Letter.d,
+            Character.Letter.e,
+            Character.Letter.f,
+            Character.Letter.A,
+            Character.Letter.B,
+            Character.Letter.C,
+            Character.Letter.D,
+            Character.Letter.E,
+            Character.Letter.F -> true
             else -> false
         }
 
     fun isValueBoundary(character: Int) =
         when (character) {
             end,
-            Symbol.colon,
-            Symbol.comma,
-            Symbol.leftCurlyBracket,
-            Symbol.leftSquareBracket,
-            Symbol.rightCurlyBracket,
-            Symbol.rightSquareBracket,
-            Whitespace.carriageReturn,
-            Whitespace.characterTabulation,
-            Whitespace.lineFeed,
-            Whitespace.space -> true
+            Character.Symbol.colon,
+            Character.Symbol.comma,
+            Character.Symbol.leftCurlyBracket,
+            Character.Symbol.leftSquareBracket,
+            Character.Symbol.rightCurlyBracket,
+            Character.Symbol.rightSquareBracket,
+            Character.Whitespace.carriageReturn,
+            Character.Whitespace.characterTabulation,
+            Character.Whitespace.lineFeed,
+            Character.Whitespace.space -> true
             else -> false
         }
 
     fun isWhitespace(character: Int) =
         when (character) {
-            Whitespace.carriageReturn,
-            Whitespace.characterTabulation,
-            Whitespace.lineFeed,
-            Whitespace.space -> true
+            Character.Whitespace.carriageReturn,
+            Character.Whitespace.characterTabulation,
+            Character.Whitespace.lineFeed,
+            Character.Whitespace.space -> true
             else -> false
         }
 
     fun parseHexDigit(character: Int) =
         when (character) {
-            Digit.zero,
-            Digit.one,
-            Digit.two,
-            Digit.three,
-            Digit.four,
-            Digit.five,
-            Digit.six,
-            Digit.seven,
-            Digit.eight,
-            Digit.nine ->
-                character - Digit.zero
+            Character.Digit.zero,
+            Character.Digit.one,
+            Character.Digit.two,
+            Character.Digit.three,
+            Character.Digit.four,
+            Character.Digit.five,
+            Character.Digit.six,
+            Character.Digit.seven,
+            Character.Digit.eight,
+            Character.Digit.nine ->
+                character - Character.Digit.zero
 
-            Letter.a,
-            Letter.b,
-            Letter.c,
-            Letter.d,
-            Letter.e,
-            Letter.f ->
-                character - Letter.a + 10
+            Character.Letter.a,
+            Character.Letter.b,
+            Character.Letter.c,
+            Character.Letter.d,
+            Character.Letter.e,
+            Character.Letter.f ->
+                character - Character.Letter.a + 10
 
-            Letter.A,
-            Letter.B,
-            Letter.C,
-            Letter.D,
-            Letter.E,
-            Letter.F ->
-                character - Letter.A + 10
+            Character.Letter.A,
+            Character.Letter.B,
+            Character.Letter.C,
+            Character.Letter.D,
+            Character.Letter.E,
+            Character.Letter.F ->
+                character - Character.Letter.A + 10
 
             else ->
                 throw IllegalArgumentException("${toString(character)} is not a hex digit.")

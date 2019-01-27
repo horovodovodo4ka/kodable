@@ -8,7 +8,6 @@ repositories {
 }
 
 dependencies {
-    implementation project(':annotation')
     implementation project(":core")
 
 //    implementation "org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.0.5"

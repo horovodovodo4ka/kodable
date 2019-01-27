@@ -1,4 +1,4 @@
-package pro.horovodovodo4ka.kodable.core
+package pro.horovodovodo4ka.kodable.core.types
 
 import java.io.Closeable
 import java.io.Reader

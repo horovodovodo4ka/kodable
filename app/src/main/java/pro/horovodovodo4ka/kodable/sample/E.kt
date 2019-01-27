@@ -1,9 +1,9 @@
 package pro.horovodovodo4ka.kodable.sample
 
-import pro.horovodovodo4ka.kodable.Default
-import pro.horovodovodo4ka.kodable.SingleValueDekoder
+import pro.horovodovodo4ka.kodable.core.Default
+import pro.horovodovodo4ka.kodable.core.Kodable
 
-@SingleValueDekoder
+@Kodable
 enum class E {
     @Default
     unknown,

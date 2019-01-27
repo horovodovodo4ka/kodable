@@ -1,10 +1,10 @@
 package pro.horovodovodo4ka.kodable.core.defaults
 
 import pro.horovodovodo4ka.kodable.core.JSONReader
-import pro.horovodovodo4ka.kodable.core.Kodable
+import pro.horovodovodo4ka.kodable.core.IKodable
 import kotlin.reflect.KClass
 
-object BooleanKodable : Kodable<Boolean> {
+object BooleanKodable : IKodable<Boolean> {
     override fun readValue(reader: JSONReader): Boolean = reader.readBoolean()
     override fun readValueOrNull(reader: JSONReader): Boolean? = reader.readBooleanOrNull()
 
@@ -12,4 +12,4 @@ object BooleanKodable : Kodable<Boolean> {
 }
 
 @JvmName("BooleanKodable")
-fun KClass<Boolean>.kodable(): Kodable<Boolean> = BooleanKodable
+fun KClass<Boolean>.kodable(): IKodable<Boolean> = BooleanKodable

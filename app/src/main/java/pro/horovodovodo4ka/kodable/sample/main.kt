@@ -1,10 +1,12 @@
 package pro.horovodovodo4ka.kodable.sample
 
-import pro.horovodovodo4ka.kodable.JsonKoder
-import pro.horovodovodo4ka.kodable.ObjectDekoder
-import pro.horovodovodo4ka.kodable.core.JSONReader
+import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
 import pro.horovodovodo4ka.kodable.core.Kodable
+import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.JSONReader
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
+import pro.horovodovodo4ka.kodable.sample.generated.kodable
+import java.text.SimpleDateFormat
 import java.util.*
 
 fun main(args: Array<String>) {
@@ -19,20 +21,23 @@ fun main(args: Array<String>) {
     println(e)
 }
 
-inline fun <reified T> Kodable<T>.dekode(string: String): T = readValue(JSONReader.build(string))
+inline fun <reified T> IKodable<T>.dekode(string: String): T = readValue(JSONReader.build(string))
 
-@ObjectDekoder
-class Test(val index: List<List<Int>>?, val format: String, val a: A)//, @JsonKoder(DateKodable::class) date: Date)
+@Kodable
+class Test(val index: List<List<Int>>?, val format: String, val a: A, date: Date)
 
-@ObjectDekoder
+@Kodable
+data class DTO(val i: Int)
+
+@Kodable
 open class B(val i: Int)
 
-@ObjectDekoder
+@Kodable
 class B1(i: Int?, val a: String) : B(i ?: 10)
 
-object DateKodable : Kodable<Date> {
-    override fun readValue(reader: JSONReader): Date {
-        TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
-    }
+@DefaultKodableForType(Date::class)
+object DateKodable : IKodable<Date> {
+    private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
+    override fun readValue(reader: JSONReader): Date = formatter.parse(reader.readString())
 }
 

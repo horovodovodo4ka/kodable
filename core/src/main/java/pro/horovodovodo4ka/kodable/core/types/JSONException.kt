@@ -1,4 +1,4 @@
-package pro.horovodovodo4ka.kodable.core
+package pro.horovodovodo4ka.kodable.core.types
 
 class JSONException(message: String, cause: Throwable? = null) : RuntimeException(message, cause) {
 

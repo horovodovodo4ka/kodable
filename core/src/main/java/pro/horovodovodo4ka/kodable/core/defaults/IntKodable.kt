@@ -1,10 +1,10 @@
 package pro.horovodovodo4ka.kodable.core.defaults
 
 import pro.horovodovodo4ka.kodable.core.JSONReader
-import pro.horovodovodo4ka.kodable.core.Kodable
+import pro.horovodovodo4ka.kodable.core.IKodable
 import kotlin.reflect.KClass
 
-object IntKodable : Kodable<Int> {
+object IntKodable : IKodable<Int> {
     override fun readValue(reader: JSONReader): Int = reader.readInt()
     override fun readValueOrNull(reader: JSONReader): Int? = reader.readIntOrNull()
 
@@ -12,4 +12,4 @@ object IntKodable : Kodable<Int> {
 }
 
 @JvmName("IntKodable")
-fun KClass<Int>.kodable(): Kodable<Int> = IntKodable
+fun KClass<Int>.kodable(): IKodable<Int> = IntKodable

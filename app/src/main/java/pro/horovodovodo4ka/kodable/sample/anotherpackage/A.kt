@@ -1,10 +1,10 @@
 package pro.horovodovodo4ka.kodable.sample.anotherpackage
 
-import pro.horovodovodo4ka.kodable.JsonName
-import pro.horovodovodo4ka.kodable.ObjectDekoder
+import pro.horovodovodo4ka.kodable.core.KodableName
+import pro.horovodovodo4ka.kodable.core.Kodable
 
-@ObjectDekoder
-class A(@JsonName("aee") val iii: Int) {
+@Kodable
+class A(@KodableName("aee") val iii: Int = 1) {
     constructor(a: String) : this(1)
 
 }

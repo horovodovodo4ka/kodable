@@ -1,15 +1,18 @@
 package pro.horovodovodo4ka.kodable.core
 
-import pro.horovodovodo4ka.kodable.core.JSONToken.booleanValue
-import pro.horovodovodo4ka.kodable.core.JSONToken.listEnd
-import pro.horovodovodo4ka.kodable.core.JSONToken.listStart
-import pro.horovodovodo4ka.kodable.core.JSONToken.mapEnd
-import pro.horovodovodo4ka.kodable.core.JSONToken.mapKey
-import pro.horovodovodo4ka.kodable.core.JSONToken.mapStart
-import pro.horovodovodo4ka.kodable.core.JSONToken.nullValue
-import pro.horovodovodo4ka.kodable.core.JSONToken.numberValue
-import pro.horovodovodo4ka.kodable.core.JSONToken.stringValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.booleanValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.listEnd
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.listStart
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapEnd
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapKey
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapStart
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.nullValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.numberValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.stringValue
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader
+import pro.horovodovodo4ka.kodable.core.types.JSONException
+import pro.horovodovodo4ka.kodable.core.types.JSONToken
+import pro.horovodovodo4ka.kodable.core.types.TextInput
 import java.io.Closeable
 import java.io.Reader
 import java.io.StringReader
