@@ -21,11 +21,11 @@ android {
     }
 }
 
-apply plugin: "idea"
-idea {
-    module {
-        sourceDirs += file("${buildDir}/generated/source/kaptKotlin/debug")
-        generatedSourceDirs += file("${buildDir}/generated/source/kaptKotlin/debug")
+android {
+    sourceSets {
+        main {
+            java.srcDirs += [file("$buildDir/generated/source/kaptKotlin/debug"), file("$buildDir/generated/source/kaptKotlin/release")]
+        }
     }
 }
 

@@ -141,7 +141,9 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
         val constructorMeta = constructor.asConstructorOrNull(typeMeta) ?: return null
 
-        if (constructorMeta.valueParameterCount == 0) return null
+
+
+        if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Kodable annotation, but constructor has no parameters")
 
         return ClassMeta(type, constructor, typeMeta, constructorMeta)
     }
@@ -193,9 +195,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
     private fun ExecutableElement.asConstructorOrNull(meta: KotlinClassMetadata): ProtoBuf.Constructor? {
-        val sig = jvmMethodSignature
+        val sig1 = jvmMethodSignature
         return meta.data.classProto.constructorList.firstOrNull {
-            it.getJvmConstructorSignature(meta.data.nameResolver, meta.data.classProto.typeTable) == sig
+            val sig2 = it.getJvmConstructorSignature(meta.data.nameResolver, meta.data.classProto.typeTable)?.replace("$", "/")
+            sig2 == sig1
         }
     }
 
@@ -270,7 +273,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .builder(kodable.packageName(), kodable.simpleName())
             .addStaticImport("$packageName.core", "defaults.kodable")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
-            .addStaticImport(clz.packageName(), clz.simpleName())
             .addType(newType)
             .addFunction(extFunSpec(clz, kodable))
             .build()
@@ -303,8 +305,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val kodable = clz.kodableName()
 
         val intrface = ParameterizedTypeName.get(KODABLE_TYPE, clz)
-
-        val kodableImports = mutableListOf<ClassName>()
 
         val newType = TypeSpec
             .objectBuilder(kodable)
@@ -347,12 +347,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .builder(kodable.packageName(), kodable.simpleName())
             .addStaticImport("$packageName.core", "defaults.kodable")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
-            .addStaticImport(clz.packageName(), clz.simpleName())
-            .apply {
-                kodableImports.forEach {
-                    addStaticImport(it.packageName(), it.simpleName())
-                }
-            }
             .addType(newType)
             .addFunction(extFunSpec(clz, kodable))
             .build()
@@ -389,7 +383,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 }
 
-private fun ClassName.kodableName(): ClassName = ClassName(packageName() + ".generated", "${simpleName()}Kodable")
+private fun ClassName.kodableName(): ClassName {
+    val fullName = simpleNames().joinToString("_")
+    return ClassName(packageName() + ".generated", "${fullName}_Kodable")
+}
 
 private fun Element.customKoder() =
     annotationMirrors.firstOrNull { it.annotationType.asTypeName() == CustomKodable::class.asTypeName() }?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) }

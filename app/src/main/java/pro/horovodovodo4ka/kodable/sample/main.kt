@@ -24,7 +24,13 @@ fun main(args: Array<String>) {
 inline fun <reified T> IKodable<T>.dekode(string: String): T = readValue(JSONReader.build(string))
 
 @Kodable
-class Test(val index: List<List<Int>>?, val format: String, val a: A, date: Date)
+class Test(val index: List<List<Int>>?, val format: String, val a: A, date: Date, foo: Foo) {
+
+    @Kodable
+    enum class Foo {
+        a, b;
+    }
+}
 
 @Kodable
 data class DTO(val i: Int)
@@ -40,4 +46,3 @@ object DateKodable : IKodable<Date> {
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
     override fun readValue(reader: JSONReader): Date = formatter.parse(reader.readString())
 }
-
