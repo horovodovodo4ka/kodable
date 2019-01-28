@@ -1,16 +1,14 @@
 apply plugin: 'kotlin'
 apply plugin: 'kotlin-kapt'
+apply plugin: 'maven'
 
 repositories {
-    maven { url "https://jitpack.io" }
-//    maven { url  "https://kotlin.bintray.com/kotlinx/" }
     mavenCentral()
 }
 
 dependencies {
     implementation project(":core")
 
-//    implementation "org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.0.5"
     implementation "me.eugeniomarletti.kotlin.metadata:kotlin-metadata:1.4.0"
     implementation 'com.squareup:kotlinpoet:0.7.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"

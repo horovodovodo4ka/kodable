@@ -1,6 +1,5 @@
 package pro.horovodovodo4ka.kodable.core
 
-import pro.horovodovodo4ka.kodable.core.IKodable
 import kotlin.reflect.KClass
 
 @Target(AnnotationTarget.CONSTRUCTOR, AnnotationTarget.CLASS)

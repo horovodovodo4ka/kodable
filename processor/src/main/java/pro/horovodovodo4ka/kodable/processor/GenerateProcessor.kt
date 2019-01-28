@@ -146,7 +146,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         return ClassMeta(type, constructor, typeMeta, constructorMeta)
     }
 
-    inner class PropDesc(parameter: VariableElement, val name: CharSequence) {
+    class PropDesc(parameter: VariableElement, val name: CharSequence) {
         val jsonName: CharSequence = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.jsonName ?: name
         val customKoder = parameter.customKoder()
         val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
@@ -154,7 +154,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val propertyType: ClassName get() = types.last()
         val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
         val listNestingCount: Int get() = types.size - 1
-        val koderType: ClassName get() = customKoder ?: kodableFor(propertyType)
+        val koderType: ClassName get() = customKoder ?: defaults[propertyType] ?: propertyType.kodableName()
 
         val types: List<ClassName>
 
@@ -163,13 +163,11 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             types = mutableListOf<ClassName>().also { unwrapType(typeName, it) }
         }
 
-        private fun kodableFor(type: ClassName): ClassName = defaults[type] ?: type.kodableName()
-
         private fun unwrapType(type: TypeName, result: MutableList<ClassName>) {
             when (type) {
                 is ParameterizedTypeName -> {
                     val genericType = fixType(type.rawType)
-                    if (genericType != LIST_TYPE) throw Exception("Only List collections are allowed! $genericType found")
+                    if (genericType != LIST_TYPE) throw Exception("Only kotlin.collections.List is allowed! $genericType found")
                     result.add(genericType)
                     unwrapType(type.typeArguments.first(), result)
                 }
@@ -215,7 +213,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val clz = element as TypeElement
         val default = clz.enclosedElements
             .firstOrNull { it.getAnnotationsByType(Default::class.java).isNotEmpty() }
-            ?.let { field -> proto.enumEntryList.firstOrNull { field.toString() == nameResolver.getString(it.name) } } ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
+            ?.let { field ->
+                proto.enumEntryList
+                    .firstOrNull { field.toString() == nameResolver.getString(it.name) } ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
+            }
 
         return EnumMeta(element, meta, proto.enumEntryList, default)
     }
@@ -224,16 +225,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private fun detectProcessingType(element: Element) {
         val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
-        when {
-            proto.classKind == Kind.ENUM_CLASS -> {
-                generateEnumDekoder(element)
+        when(proto.classKind) {
+            Kind.ENUM_CLASS -> generateEnumDekoder(element)
+            Kind.CLASS -> when {
+                proto.isDataClass -> generateObjectDekoder(element)
+                else -> generateObjectDekoder(element)
             }
-            proto.classKind == Kind.CLASS -> {
-                when {
-                    proto.isDataClass -> generateObjectDekoder(element)
-                    else -> generateObjectDekoder(element)
-                }
-            }
+            else -> {}
         }
     }
 
