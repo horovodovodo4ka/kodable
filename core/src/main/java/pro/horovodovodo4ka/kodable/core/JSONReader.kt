@@ -111,10 +111,11 @@ interface JSONReader : Closeable {
         readMapEnd()
     }
 
-    fun readElementsFromList(readElement: JSONReader.() -> Unit) {
+    fun readElementsFromList(readElement: JSONReader.(Int) -> Unit) {
         readListStart()
+        var counter = 0
         while (nextToken != listEnd)
-            readElement(this)
+            readElement(this, counter++)
         readListEnd()
     }
 
