@@ -1,7 +1,7 @@
 package pro.horovodovodo4ka.kodable.core.defaults
 
-import pro.horovodovodo4ka.kodable.core.JSONReader
 import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.JSONReader
 import kotlin.reflect.KClass
 
 object NumberKodable : IKodable<Number> {

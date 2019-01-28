@@ -2,7 +2,7 @@ package pro.horovodovodo4ka.kodable.core.types
 
 import java.io.Closeable
 import java.io.Reader
-import java.util.Arrays
+import java.util.*
 
 internal class TextInput(private val source: Reader) : Closeable by source {
 

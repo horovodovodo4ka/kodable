@@ -1,5 +1,8 @@
 package pro.horovodovodo4ka.kodable.core
 
+import pro.horovodovodo4ka.kodable.core.implementations.StandardReader
+import pro.horovodovodo4ka.kodable.core.types.JSONException
+import pro.horovodovodo4ka.kodable.core.types.JSONToken
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.booleanValue
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.listEnd
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.listStart
@@ -9,9 +12,6 @@ import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapStart
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.nullValue
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.numberValue
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.stringValue
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader
-import pro.horovodovodo4ka.kodable.core.types.JSONException
-import pro.horovodovodo4ka.kodable.core.types.JSONToken
 import pro.horovodovodo4ka.kodable.core.types.TextInput
 import java.io.Closeable
 import java.io.Reader

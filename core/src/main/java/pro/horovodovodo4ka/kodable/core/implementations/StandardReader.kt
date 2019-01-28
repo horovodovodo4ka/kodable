@@ -1,22 +1,6 @@
 package pro.horovodovodo4ka.kodable.core.implementations
 
-import pro.horovodovodo4ka.kodable.core.types.Character
-import pro.horovodovodo4ka.kodable.core.types.Character.Digit
-import pro.horovodovodo4ka.kodable.core.types.Character.Letter
-import pro.horovodovodo4ka.kodable.core.types.Character.Symbol
-import pro.horovodovodo4ka.kodable.core.types.JSONException
 import pro.horovodovodo4ka.kodable.core.JSONReader
-import pro.horovodovodo4ka.kodable.core.types.JSONToken
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.booleanValue
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.listEnd
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.listStart
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapEnd
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapKey
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapStart
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.nullValue
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.numberValue
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.stringValue
-import pro.horovodovodo4ka.kodable.core.types.TextInput
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterListElement
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterListElementSeparator
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterListStart
@@ -28,6 +12,22 @@ import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.aft
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.closed
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.end
 import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.initial
+import pro.horovodovodo4ka.kodable.core.types.Character
+import pro.horovodovodo4ka.kodable.core.types.Character.Digit
+import pro.horovodovodo4ka.kodable.core.types.Character.Letter
+import pro.horovodovodo4ka.kodable.core.types.Character.Symbol
+import pro.horovodovodo4ka.kodable.core.types.JSONException
+import pro.horovodovodo4ka.kodable.core.types.JSONToken
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.booleanValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.listEnd
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.listStart
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapEnd
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapKey
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapStart
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.nullValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.numberValue
+import pro.horovodovodo4ka.kodable.core.types.JSONToken.stringValue
+import pro.horovodovodo4ka.kodable.core.types.TextInput
 import java.io.IOException
 
 internal class StandardReader(private val source: TextInput) : JSONReader {

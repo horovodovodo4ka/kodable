@@ -19,7 +19,8 @@ fun main(args: Array<String>) {
 //    val test = Test::class.kodable().dekode(""" {"index": [[1, 2]], "format": "ae!", "a" : { "aee" : 1 } } """)
 //    println(test)
 
-    val e = E::class.kodable().dekode(""" { "data" : { "items" : [ "a" ] } } """, KodablePath(".data.items[0]"))
+    val path =  KodablePath(".data.items[0]")
+    val e = E::class.kodable().dekode(""" { "data" : { "items" : [ "a" ] } } """, path)
     println(e)
 }
 
