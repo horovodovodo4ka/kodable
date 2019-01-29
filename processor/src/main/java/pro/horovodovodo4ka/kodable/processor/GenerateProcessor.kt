@@ -6,7 +6,6 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
-import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.TypeName
@@ -48,11 +47,10 @@ import javax.annotation.processing.SupportedSourceVersion
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
-import javax.lang.model.element.ElementKind.CLASS
-import javax.lang.model.element.ElementKind.CONSTRUCTOR
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
 import javax.lang.model.element.VariableElement
+import javax.lang.model.type.DeclaredType
 import javax.lang.model.util.ElementFilter
 import javax.tools.Diagnostic
 import kotlin.reflect.KClass
@@ -77,7 +75,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val SHORT_TYPE = Short::class.asClassName()
         val STRING_TYPE = String::class.asClassName()
 
-        private val defaults = mapOf(
+        private val defaults = mapOf<TypeName, TypeName>(
             INT_TYPE to IntKodable::class.asClassName(),
             STRING_TYPE to StringKodable::class.asClassName(),
             BYTE_TYPE to ByteKodable::class.asClassName(),
@@ -141,8 +139,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         if (element !is TypeElement) return
 
         val kodable = element.asClassName()
-        val targetType = element.annotationMirrors.firstOrNull { it.annotationType.asTypeName() == DefaultKodableForType::class.asTypeName() }
-            ?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) } ?: return
+        val targetType = element.annotationValue<DeclaredType>(DefaultKodableForType::class)?.asTypeName() ?: return
 
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
@@ -156,7 +153,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     // objects
     class ClassMeta(val type: TypeElement, val constructor: ExecutableElement, val typeMeta: KotlinClassMetadata, val constructorMeta: ProtoBuf.Constructor)
 
-    private fun getClass(element: Element) : TypeElement? {
+    private fun getClass(element: Element): TypeElement? {
         return when (element.kind) {
             ElementKind.CLASS, ElementKind.ENUM -> element as TypeElement
             ElementKind.CONSTRUCTOR -> element.enclosingElement as TypeElement
@@ -188,20 +185,22 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         return ClassMeta(type, constructor, typeMeta, constructorMeta)
     }
 
-    inner class PropDesc(private val parameter: VariableElement, val name: CharSequence) {
-        val jsonName: CharSequence = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.jsonName ?: name
-        val customKoder = parameter.customKoder()
+    inner class PropDesc(parameter: VariableElement, val name: CharSequence) {
+        private val types: List<ClassName>
+
+        val jsonName = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.jsonName ?: name
         val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
-        val nullableSuffix: String = if (nullable) "?" else ""
-        val propertyType: ClassName get() = types.last()
-        val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
-        val listNestingCount: Int get() = types.size - 1
-        val koderType: ClassName
+        val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + if (nullable) "?" else ""
+        val listNestingCount get() = types.size - 1
+
+        private val customKoder = parameter.customKoder()
+        private val propertyType get() = types.last()
+
+        val koderType
             get() = customKoder ?: defaults[propertyType]
             ?: prefetchedTypes.firstOrNull { it == propertyType }?.let { propertyType.kodableName() }
             ?: throw Exception("Kodable for '$propertyType' is not defined and not generated")
 
-        val types: List<ClassName>
 
         init {
             val typeName = parameter.asType().asTypeName()
@@ -266,8 +265,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val default = clz.enclosedElements
             .firstOrNull { it.getAnnotationsByType(Default::class.java).isNotEmpty() }
             ?.let { field ->
-                proto.enumEntryList
-                    .firstOrNull { field.toString() == nameResolver.getString(it.name) } ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
+                proto.enumEntryList.firstOrNull { field.toString() == nameResolver.getString(it.name) }
+                    ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
             }
 
         return EnumMeta(element, meta, proto.enumEntryList, default)
@@ -431,5 +430,8 @@ private fun ClassName.kodableName(): ClassName {
     return ClassName(packageName() + ".generated", "${fullName}_Kodable")
 }
 
-private fun Element.customKoder() =
-    annotationMirrors.firstOrNull { it.annotationType.asTypeName() == CustomKodable::class.asTypeName() }?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) }
+private fun Element.customKoder() = annotationValue<DeclaredType>(CustomKodable::class)?.let { it.asTypeName() /* ClassName.bestGuess(it.toString()) */ }
+//    annotationMirrors.firstOrNull { it.annotationType.asTypeName() == CustomKodable::class.asTypeName() }?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) }
+
+inline fun <reified T> Element.annotationValue(annotation: KClass<out Annotation>, paramIndex: Int = 0): T? =
+    annotationMirrors.firstOrNull { it.annotationType.asTypeName() == annotation.asTypeName() }?.elementValues?.values?.toList()?.getOrNull(paramIndex)?.value as? T
