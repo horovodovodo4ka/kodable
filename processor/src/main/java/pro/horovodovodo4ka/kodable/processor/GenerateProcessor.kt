@@ -46,6 +46,7 @@ import javax.annotation.processing.SupportedOptions
 import javax.annotation.processing.SupportedSourceVersion
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element
+import javax.lang.model.element.ElementKind
 import javax.lang.model.element.ElementKind.CLASS
 import javax.lang.model.element.ElementKind.CONSTRUCTOR
 import javax.lang.model.element.ExecutableElement
@@ -111,7 +112,9 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private val prefetchedTypes = mutableListOf<TypeName>()
     private val prefetchedProcessors = mutableListOf<() -> Boolean>()
     private fun prefetchTypes(element: Element) {
-        val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return
+        printWarning(">>>>>> ${element.kind}")
+        val clz = getClass(element) ?: throw Exception("@Kodable annotation must be used with classes and constructors only")
+        val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
         val processingFun = when (proto.classKind) {
             Kind.ENUM_CLASS -> ::generateEnumDekoder
@@ -122,7 +125,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             else -> throw Exception("Unsupported type $element: must be class or enum")
         }
 
-        prefetchedTypes.add((element as TypeElement).asClassName())
+        prefetchedTypes.add(fixType(clz.asClassName()))
         prefetchedProcessors.add {
             printWarning("Kodable processing: $element")
             processingFun(element)
@@ -153,16 +156,24 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     // objects
     class ClassMeta(val type: TypeElement, val constructor: ExecutableElement, val typeMeta: KotlinClassMetadata, val constructorMeta: ProtoBuf.Constructor)
 
+    private fun getClass(element: Element) : TypeElement? {
+        return when (element.kind) {
+            ElementKind.CLASS, ElementKind.ENUM -> element as TypeElement
+            ElementKind.CONSTRUCTOR -> element.enclosingElement as TypeElement
+            else -> null
+        }
+    }
+
     private fun getClassAndCostructor(element: Element): ClassMeta? {
         val type: TypeElement
         val constructor: ExecutableElement
 
         when (element.kind) {
-            CLASS -> {
+            ElementKind.CLASS -> {
                 type = element as TypeElement
                 constructor = ElementFilter.constructorsIn(type.enclosedElements).firstOrNull() ?: return null
             }
-            CONSTRUCTOR -> {
+            ElementKind.CONSTRUCTOR -> {
                 constructor = element as ExecutableElement
                 type = element.enclosingElement as TypeElement
             }
@@ -185,8 +196,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val propertyType: ClassName get() = types.last()
         val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
         val listNestingCount: Int get() = types.size - 1
-        val koderType: ClassName get() = customKoder ?: defaults[propertyType] ?: prefetchedTypes.firstOrNull { it == propertyType}?.let { propertyType.kodableName() } ?:
-        throw Exception("Kodable for '$propertyType' is not defined and not generated")
+        val koderType: ClassName
+            get() = customKoder ?: defaults[propertyType]
+            ?: prefetchedTypes.firstOrNull { it == propertyType }?.let { propertyType.kodableName() }
+            ?: throw Exception("Kodable for '$propertyType' is not defined and not generated")
 
         val types: List<ClassName>
 
@@ -214,14 +227,20 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 }
             }
         }
+    }
 
-        private fun fixType(type: ClassName): ClassName = when (type.toString()) {
-            "java.lang.String" -> STRING_TYPE
-            "java.lang.Integer" -> INT_TYPE
-            "java.util.List" -> LIST_TYPE
-            "java.lang.Number" -> NUMBER_TYPE
-            else -> type
-        }
+    private fun fixType(type: ClassName): ClassName = when (type.toString()) {
+        "java.lang.String" -> STRING_TYPE
+        "java.lang.Double" -> DOUBLE_TYPE
+        "java.lang.Short" -> SHORT_TYPE
+        "java.lang.Byte" -> BYTE_TYPE
+        "java.lang.Float" -> FLOAT_TYPE
+        "java.lang.Boolean" -> BOOLEAN_TYPE
+        "java.lang.Long" -> LONG_TYPE
+        "java.lang.Integer" -> INT_TYPE
+        "java.lang.Number" -> NUMBER_TYPE
+        "java.util.List" -> LIST_TYPE
+        else -> type
     }
 
     private fun ExecutableElement.asConstructorOrNull(meta: KotlinClassMetadata): ProtoBuf.Constructor? {
