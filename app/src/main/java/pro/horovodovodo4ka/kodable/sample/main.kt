@@ -6,6 +6,7 @@ import pro.horovodovodo4ka.kodable.core.Kodable
 import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.KodableReader
 import pro.horovodovodo4ka.kodable.core.KodablePath
+import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import pro.horovodovodo4ka.kodable.sample.generated.kodable
 import java.text.SimpleDateFormat
@@ -22,12 +23,6 @@ fun main(args: Array<String>) {
     val path =  KodablePath(".data.items[0]")
     val e = E::class.kodable().dekode(""" { "data" : { "items" : [ "a" ] } } """, path)
     println(e)
-}
-
-inline fun <reified T> IKodable<T>.dekode(string: String, path: KodablePath? = null): T {
-    val reader = KodableReader.build(string)
-    path?.also { println(it) }?.go(reader)
-    return readValue(reader)
 }
 
 @Kodable

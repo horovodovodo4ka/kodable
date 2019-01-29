@@ -112,7 +112,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private val prefetchedTypes = mutableListOf<TypeName>()
     private val prefetchedProcessors = mutableListOf<() -> Boolean>()
     private fun prefetchTypes(element: Element) {
-        printWarning(">>>>>> ${element.kind}")
         val clz = getClass(element) ?: throw Exception("@Kodable annotation must be used with classes and constructors only")
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
