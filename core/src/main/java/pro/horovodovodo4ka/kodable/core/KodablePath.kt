@@ -13,8 +13,10 @@ class KodablePath(path: String) {
             override fun process(reader: KodableReader) {
                 with(reader) {
                     readMapStart()
-                    while (nextToken != mapEnd)
+                    while (nextToken != mapEnd) {
                         if (readMapKey() == key) return
+                        skipValue()
+                    }
                     readMapEnd()
                 }
                 throw Exception()
