@@ -64,6 +64,7 @@ const val packageName = "pro.horovodovodo4ka.kodable"
 class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     companion object {
+        private var processed = false
         val INT_TYPE = Int::class.asClassName()
         val BYTE_TYPE = Byte::class.asClassName()
         val BOOLEAN_TYPE = Boolean::class.asClassName()
@@ -98,12 +99,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     )
 
     override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
+        if (processed) return false
         roundEnv.getElementsAnnotatedWith(DefaultKodableForType::class.java).forEach(::registerDefaultKodable)
         roundEnv.getElementsAnnotatedWith(Kodable::class.java).forEach(::prefetchTypes)
         processPrefetchedTypes()
+        processed = true
         return false
     }
-
 
     // selector
     private val prefetchedTypes = mutableListOf<TypeName>()
@@ -121,7 +123,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         }
 
         prefetchedTypes.add((element as TypeElement).asClassName())
-        prefetchedProcessors.add { processingFun(element) }
+        prefetchedProcessors.add {
+            printWarning("Kodable processing: $element")
+            processingFun(element)
+        }
     }
 
     private fun processPrefetchedTypes() {
@@ -139,6 +144,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
             .firstOrNull { it.rawType == KODABLE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
+
+        if (defaults[targetType] != null) throw Exception("Default Kodable for '$element' already defined: ${defaults[targetType]}")
 
         defaults[targetType] = kodable
     }
@@ -178,7 +185,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val propertyType: ClassName get() = types.last()
         val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
         val listNestingCount: Int get() = types.size - 1
-        val koderType: ClassName get() = customKoder ?: defaults[propertyType] ?: prefetchedTypes.firstOrNull { it == propertyType}?.let { propertyType.kodableName() } ?: throw Exception("Kodable for '$propertyType' is not defined and not generated")
+        val koderType: ClassName get() = customKoder ?: defaults[propertyType] ?: prefetchedTypes.firstOrNull { it == propertyType}?.let { propertyType.kodableName() } ?:
+        throw Exception("Kodable for '$propertyType' is not defined and not generated")
 
         val types: List<ClassName>
 
@@ -382,6 +390,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
 // endregion =========== Object ===========
+
+    private fun printInfo(message: String) {
+        messager.printMessage(Diagnostic.Kind.OTHER, message)
+    }
 
     private fun printError(message: String) {
         messager.printMessage(Diagnostic.Kind.ERROR, message)
