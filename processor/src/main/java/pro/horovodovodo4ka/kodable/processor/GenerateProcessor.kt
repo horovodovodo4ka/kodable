@@ -370,7 +370,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                         addStatement("}")
 
                         params.filter { !it.nullable }.forEach {
-                            addStatement("""assert(${it.name} != null) { "Non nullable property '${it.name}' didn't decoded for type '$clz'" }""")
+                            addStatement("""assert(${it.name} == null) { "Non nullable property '${it.name}' didn't decoded for type '$clz'" }""")
                         }
 
                         addStatement("return %T(${params.joinToString(",\n") {
