@@ -6,6 +6,7 @@ import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
+import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.TypeName
@@ -370,7 +371,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                         addStatement("}")
 
                         params.filter { !it.nullable }.forEach {
-                            addStatement("""assert(${it.name} == null) { "Non nullable property '${it.name}' didn't decoded for type '$clz'" }""")
+                            addStatement("""propertyAssert(${it.name}, "${it.name}", "$clz")""")
                         }
 
                         addStatement("return %T(${params.joinToString(",\n") {
@@ -383,7 +384,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val file = FileSpec
             .builder(kodable.packageName(), kodable.simpleName())
-            .addStaticImport("$packageName.core", "defaults.kodable")
+            .addStaticImport("$packageName.core", "defaults.kodable", "utils.propertyAssert")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
             .addType(newType)
             .addFunction(extFunSpec(clz, kodable))
