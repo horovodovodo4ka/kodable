@@ -7,10 +7,10 @@ import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapEnd
 class KodablePath(path: String) {
 
     sealed class PathToken {
-        abstract fun process(reader: JSONReader)
+        abstract fun process(reader: KodableReader)
 
         class ObjectElement(val key: String) : PathToken() {
-            override fun process(reader: JSONReader) {
+            override fun process(reader: KodableReader) {
                 with(reader) {
                     readMapStart()
                     while (nextToken != mapEnd)
@@ -22,7 +22,7 @@ class KodablePath(path: String) {
         }
 
         class ListElement(val index: Int) : PathToken() {
-            override fun process(reader: JSONReader) {
+            override fun process(reader: KodableReader) {
                 with(reader) {
                     readListStart()
                     var counter = 0
@@ -48,7 +48,7 @@ class KodablePath(path: String) {
             }
     }
 
-    fun go(reader: JSONReader) {
+    fun go(reader: KodableReader) {
         stack.forEach { it.process(reader) }
     }
 

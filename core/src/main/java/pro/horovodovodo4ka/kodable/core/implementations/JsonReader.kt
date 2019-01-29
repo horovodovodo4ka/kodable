@@ -1,17 +1,17 @@
 package pro.horovodovodo4ka.kodable.core.implementations
 
-import pro.horovodovodo4ka.kodable.core.JSONReader
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterListElement
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterListElementSeparator
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterListStart
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterMapElement
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterMapElementSeparator
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterMapKey
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterMapKeySeparator
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.afterMapStart
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.closed
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.end
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader.State.initial
+import pro.horovodovodo4ka.kodable.core.KodableReader
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterListElement
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterListElementSeparator
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterListStart
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterMapElement
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterMapElementSeparator
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterMapKey
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterMapKeySeparator
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.afterMapStart
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.closed
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.end
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader.State.initial
 import pro.horovodovodo4ka.kodable.core.types.Character
 import pro.horovodovodo4ka.kodable.core.types.Character.Digit
 import pro.horovodovodo4ka.kodable.core.types.Character.Letter
@@ -30,7 +30,7 @@ import pro.horovodovodo4ka.kodable.core.types.JSONToken.stringValue
 import pro.horovodovodo4ka.kodable.core.types.TextInput
 import java.io.IOException
 
-internal class StandardReader(private val source: TextInput) : JSONReader {
+internal class JsonReader(private val source: TextInput) : KodableReader {
 
     private val buffer = StringBuilder()
     private var peekedToken: JSONToken? = null

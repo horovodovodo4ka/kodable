@@ -28,9 +28,9 @@ import pro.horovodovodo4ka.kodable.core.CustomKodable
 import pro.horovodovodo4ka.kodable.core.Default
 import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
 import pro.horovodovodo4ka.kodable.core.IKodable
-import pro.horovodovodo4ka.kodable.core.JSONReader
 import pro.horovodovodo4ka.kodable.core.Kodable
 import pro.horovodovodo4ka.kodable.core.KodableName
+import pro.horovodovodo4ka.kodable.core.KodableReader
 import pro.horovodovodo4ka.kodable.core.defaults.BooleanKodable
 import pro.horovodovodo4ka.kodable.core.defaults.ByteKodable
 import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
@@ -89,7 +89,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val LIST_TYPE = kotlin.collections.List::class.asClassName()
         val KODABLE_TYPE = IKodable::class.asClassName()
-        val READER_TYPE = JSONReader::class.asClassName()
+        val READER_TYPE = KodableReader::class.asClassName()
     }
 
     override fun getSupportedAnnotationTypes(): MutableSet<String> = mutableSetOf(
@@ -99,10 +99,34 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
         roundEnv.getElementsAnnotatedWith(DefaultKodableForType::class.java).forEach(::registerDefaultKodable)
-        roundEnv.getElementsAnnotatedWith(Kodable::class.java).forEach(::detectProcessingType)
+        roundEnv.getElementsAnnotatedWith(Kodable::class.java).forEach(::prefetchTypes)
+        processPrefetchedTypes()
         return false
     }
 
+
+    // selector
+    private val prefetchedTypes = mutableListOf<TypeName>()
+    private val prefetchedProcessors = mutableListOf<() -> Boolean>()
+    private fun prefetchTypes(element: Element) {
+        val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return
+        val proto = meta.data.classProto
+        val processingFun = when (proto.classKind) {
+            Kind.ENUM_CLASS -> ::generateEnumDekoder
+            Kind.CLASS -> when {
+                proto.isDataClass -> ::generateObjectDekoder
+                else -> ::generateObjectDekoder
+            }
+            else -> throw Exception("Unsupported type $element: must be class or enum")
+        }
+
+        prefetchedTypes.add((element as TypeElement).asClassName())
+        prefetchedProcessors.add { processingFun(element) }
+    }
+
+    private fun processPrefetchedTypes() {
+        prefetchedProcessors.forEach { it() }
+    }
     // defaults
 
     private fun registerDefaultKodable(element: Element) {
@@ -141,14 +165,12 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
         val constructorMeta = constructor.asConstructorOrNull(typeMeta) ?: return null
 
-
-
         if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Kodable annotation, but constructor has no parameters")
 
         return ClassMeta(type, constructor, typeMeta, constructorMeta)
     }
 
-    class PropDesc(parameter: VariableElement, val name: CharSequence) {
+    inner class PropDesc(private val parameter: VariableElement, val name: CharSequence) {
         val jsonName: CharSequence = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.jsonName ?: name
         val customKoder = parameter.customKoder()
         val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
@@ -156,7 +178,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val propertyType: ClassName get() = types.last()
         val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
         val listNestingCount: Int get() = types.size - 1
-        val koderType: ClassName get() = customKoder ?: defaults[propertyType] ?: propertyType.kodableName()
+        val koderType: ClassName get() = customKoder ?: defaults[propertyType] ?: prefetchedTypes.firstOrNull { it == propertyType}?.let { propertyType.kodableName() } ?: throw Exception("Kodable for '$propertyType' is not defined and not generated")
 
         val types: List<ClassName>
 
@@ -224,21 +246,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         return EnumMeta(element, meta, proto.enumEntryList, default)
     }
 
-    // selector
-    private fun detectProcessingType(element: Element) {
-        val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return
-        val proto = meta.data.classProto
-        when(proto.classKind) {
-            Kind.ENUM_CLASS -> generateEnumDekoder(element)
-            Kind.CLASS -> when {
-                proto.isDataClass -> generateObjectDekoder(element)
-                else -> generateObjectDekoder(element)
-            }
-            else -> {}
-        }
-    }
 
-    // region    =========== Value ===========
+// region    =========== Value ===========
 
     private fun generateEnumDekoder(element: Element): Boolean {
         val meta = getEnumClassAndDefault(element) ?: return false
@@ -285,9 +294,9 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         return true
     }
 
-    // endregion =========== Value ===========
+// endregion =========== Value ===========
 
-    // region    =========== Object ===========
+// region    =========== Object ===========
 
 
     private fun generateObjectDekoder(element: Element): Boolean {
@@ -372,7 +381,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .build()
     }
 
-    // endregion =========== Object ===========
+// endregion =========== Object ===========
 
     private fun printError(message: String) {
         messager.printMessage(Diagnostic.Kind.ERROR, message)

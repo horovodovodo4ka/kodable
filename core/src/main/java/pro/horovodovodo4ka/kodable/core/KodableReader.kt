@@ -1,6 +1,6 @@
 package pro.horovodovodo4ka.kodable.core
 
-import pro.horovodovodo4ka.kodable.core.implementations.StandardReader
+import pro.horovodovodo4ka.kodable.core.implementations.JsonReader
 import pro.horovodovodo4ka.kodable.core.types.JSONException
 import pro.horovodovodo4ka.kodable.core.types.JSONToken
 import pro.horovodovodo4ka.kodable.core.types.JSONToken.booleanValue
@@ -17,7 +17,7 @@ import java.io.Closeable
 import java.io.Reader
 import java.io.StringReader
 
-interface JSONReader : Closeable {
+interface KodableReader : Closeable {
 
     val nextToken: JSONToken?
 
@@ -104,14 +104,14 @@ interface JSONReader : Closeable {
     fun readShortOrNull() =
         if (nextToken != nullValue) readShort() else readNull()
 
-    fun readElementsFromMap(readElement: JSONReader.(key: String) -> Unit) {
+    fun readElementsFromMap(readElement: KodableReader.(key: String) -> Unit) {
         readMapStart()
         while (nextToken != mapEnd)
             readElement(this, readMapKey())
         readMapEnd()
     }
 
-    fun readElementsFromList(readElement: JSONReader.(Int) -> Unit) {
+    fun readElementsFromList(readElement: KodableReader.(Int) -> Unit) {
         readListStart()
         var counter = 0
         while (nextToken != listEnd)
@@ -120,7 +120,7 @@ interface JSONReader : Closeable {
     }
 
     companion object {
-        fun build(source: Reader): JSONReader = StandardReader(TextInput(source))
-        fun build(source: String): JSONReader = build(StringReader(source))
+        fun build(source: Reader): KodableReader = JsonReader(TextInput(source))
+        fun build(source: String): KodableReader = build(StringReader(source))
     }
 }
