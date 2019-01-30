@@ -1,41 +1,48 @@
 package pro.horovodovodo4ka.kodable.core
 
+import com.github.fluidsonic.fluid.json.JSONReader
+import com.github.fluidsonic.fluid.json.JSONToken.listEnd
+import com.github.fluidsonic.fluid.json.JSONToken.mapEnd
 import pro.horovodovodo4ka.kodable.core.KodablePath.PathToken.ListElement
 import pro.horovodovodo4ka.kodable.core.KodablePath.PathToken.ObjectElement
-import pro.horovodovodo4ka.kodable.core.types.JSONToken.mapEnd
 
 class KodablePath(path: String) {
 
     sealed class PathToken {
-        abstract fun process(reader: KodableReader)
+        abstract fun process(reader: JSONReader): Boolean
 
         class ObjectElement(val key: String) : PathToken() {
-            override fun process(reader: KodableReader) {
+            override fun process(reader: JSONReader): Boolean {
                 with(reader) {
                     readMapStart()
                     while (nextToken != mapEnd) {
-                        if (readMapKey() == key) return
+                        if (readMapKey() == key) return true
                         skipValue()
                     }
                     readMapEnd()
                 }
-                throw Exception()
+                return false
             }
+
+            override fun toString(): String = ".$key"
         }
 
         class ListElement(val index: Int) : PathToken() {
-            override fun process(reader: KodableReader) {
+            override fun process(reader: JSONReader): Boolean {
                 with(reader) {
                     readListStart()
                     var counter = 0
-                    while (nextToken != mapEnd) {
-                        if (counter++ == index) return
+                    while (nextToken != listEnd) {
+                        if (index == counter) return true
+                        counter++
                         skipValue()
                     }
                     readListEnd()
                 }
-                throw Exception()
+                return false
             }
+
+            override fun toString(): String = "[$index]"
         }
     }
 
@@ -50,16 +57,17 @@ class KodablePath(path: String) {
             }
     }
 
-    fun go(reader: KodableReader) {
-        stack.forEach { it.process(reader) }
+    fun go(reader: JSONReader) {
+        stack.mapIndexed { idx, elm -> idx to elm }
+            .firstOrNull { !it.second.process(reader) }
+            ?.also {
+                val (idx, _) = it
+                val path = stack.take(idx + 1).joinToString("")
+                throw Exception("KodablePath: '$path' <- this token not found")
+            }
     }
 
-    override fun toString(): String {
-        return stack.joinToString(" -> ") {
-            when (it) {
-                is ListElement -> it.index.toString()
-                is ObjectElement -> it.key
-            }
-        }
-    }
+    override fun toString(): String = stack.joinToString("") { it.toString() }
 }
+
+fun String.kodablePath() = KodablePath(this)

@@ -1,55 +1,25 @@
 package pro.horovodovodo4ka.kodable.processor
 
+import com.github.fluidsonic.fluid.json.JSONReader
 import com.google.auto.service.AutoService
-import com.squareup.kotlinpoet.AnnotationSpec
-import com.squareup.kotlinpoet.ClassName
-import com.squareup.kotlinpoet.FileSpec
-import com.squareup.kotlinpoet.FunSpec
+import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
-import com.squareup.kotlinpoet.ParameterizedTypeName
-import com.squareup.kotlinpoet.TypeName
-import com.squareup.kotlinpoet.TypeSpec
-import com.squareup.kotlinpoet.WildcardTypeName
-import com.squareup.kotlinpoet.asClassName
-import com.squareup.kotlinpoet.asTypeName
-import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
-import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
-import me.eugeniomarletti.kotlin.metadata.classKind
-import me.eugeniomarletti.kotlin.metadata.isDataClass
+import me.eugeniomarletti.kotlin.metadata.*
 import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
-import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind
 import me.eugeniomarletti.kotlin.metadata.shadow.serialization.deserialization.getName
 import me.eugeniomarletti.kotlin.processing.KotlinAbstractProcessor
 import org.jetbrains.annotations.Nullable
-import pro.horovodovodo4ka.kodable.core.CustomKodable
-import pro.horovodovodo4ka.kodable.core.Default
-import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
-import pro.horovodovodo4ka.kodable.core.IKodable
-import pro.horovodovodo4ka.kodable.core.Kodable
-import pro.horovodovodo4ka.kodable.core.KodableName
-import pro.horovodovodo4ka.kodable.core.KodableReader
-import pro.horovodovodo4ka.kodable.core.defaults.BooleanKodable
-import pro.horovodovodo4ka.kodable.core.defaults.ByteKodable
-import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
-import pro.horovodovodo4ka.kodable.core.defaults.FloatKodable
-import pro.horovodovodo4ka.kodable.core.defaults.IntKodable
-import pro.horovodovodo4ka.kodable.core.defaults.LongKodable
-import pro.horovodovodo4ka.kodable.core.defaults.NumberKodable
-import pro.horovodovodo4ka.kodable.core.defaults.ShortKodable
-import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
+import pro.horovodovodo4ka.kodable.core.*
+import pro.horovodovodo4ka.kodable.core.defaults.*
 import javax.annotation.processing.Processor
 import javax.annotation.processing.RoundEnvironment
 import javax.annotation.processing.SupportedOptions
 import javax.annotation.processing.SupportedSourceVersion
 import javax.lang.model.SourceVersion
-import javax.lang.model.element.Element
-import javax.lang.model.element.ElementKind
-import javax.lang.model.element.ExecutableElement
-import javax.lang.model.element.TypeElement
-import javax.lang.model.element.VariableElement
+import javax.lang.model.element.*
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.util.ElementFilter
 import javax.tools.Diagnostic
@@ -90,18 +60,18 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val LIST_TYPE = kotlin.collections.List::class.asClassName()
         val KODABLE_TYPE = IKodable::class.asClassName()
-        val READER_TYPE = KodableReader::class.asClassName()
+        val READER_TYPE = JSONReader::class.asClassName()
     }
 
     override fun getSupportedAnnotationTypes(): MutableSet<String> = mutableSetOf(
-        Kodable::class.java.canonicalName,
+        Dekoder::class.java.canonicalName,
         DefaultKodableForType::class.java.canonicalName
     )
 
     override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
         if (processed) return false
         roundEnv.getElementsAnnotatedWith(DefaultKodableForType::class.java).forEach(::registerDefaultKodable)
-        roundEnv.getElementsAnnotatedWith(Kodable::class.java).forEach(::prefetchTypes)
+        roundEnv.getElementsAnnotatedWith(Dekoder::class.java).forEach(::prefetchTypes)
         processPrefetchedTypes()
         processed = true
         return false
@@ -111,7 +81,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private val prefetchedTypes = mutableListOf<TypeName>()
     private val prefetchedProcessors = mutableListOf<() -> Boolean>()
     private fun prefetchTypes(element: Element) {
-        val clz = getClass(element) ?: throw Exception("@Kodable annotation must be used with classes and constructors only")
+        val clz = getClass(element) ?: throw Exception("@Dekoder annotation must be used with classes and constructors only")
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
         val processingFun = when (proto.classKind) {
@@ -125,7 +95,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         prefetchedTypes.add(fixType(clz.asClassName()))
         prefetchedProcessors.add {
-            printWarning("Kodable processing: $element")
+            printWarning("Dekoder processing: $element")
             processingFun(element)
         }
     }
@@ -145,7 +115,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
             .firstOrNull { it.rawType == KODABLE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
 
-        if (defaults[targetType] != null) throw Exception("Default Kodable for '$element' already defined: ${defaults[targetType]}")
+        if (defaults[targetType] != null) throw Exception("Default Dekoder for '$element' already defined: ${defaults[targetType]}")
 
         defaults[targetType] = kodable
     }
@@ -180,7 +150,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
         val constructorMeta = constructor.asConstructorOrNull(typeMeta) ?: return null
 
-        if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Kodable annotation, but constructor has no parameters")
+        if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Dekoder annotation, but constructor has no parameters")
 
         return ClassMeta(type, constructor, typeMeta, constructorMeta)
     }
@@ -188,7 +158,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     inner class PropDesc(parameter: VariableElement, val name: CharSequence) {
         private val types: List<ClassName>
 
-        val jsonName = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.jsonName ?: name
+        val jsonName = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.name ?: name
         val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
         val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + if (nullable) "?" else ""
         val listNestingCount get() = types.size - 1
@@ -199,7 +169,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val koderType
             get() = customKoder ?: defaults[propertyType]
             ?: prefetchedTypes.firstOrNull { it == propertyType }?.let { propertyType.kodableName() }
-            ?: throw Exception("Kodable for '$propertyType' is not defined and not generated")
+            ?: throw Exception("Dekoder for '$propertyType' is not defined and not generated")
 
 
         init {
@@ -357,7 +327,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             addStatement("var ${it.name}: Any? = null")
                         }
 
-                        addStatement("reader.readElementsFromMap {")
+                        addStatement("reader.readFromMapByElementValue {")
                         addStatement("when (it) {")
 
                         params.forEach {
@@ -384,7 +354,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val file = FileSpec
             .builder(kodable.packageName(), kodable.simpleName())
             .addStaticImport("$packageName.core", "defaults.kodable", "utils.propertyAssert")
-            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
+            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue")
             .addType(newType)
             .addFunction(extFunSpec(clz, kodable))
             .build()
