@@ -14,7 +14,7 @@ fun main(args: Array<String>) {
 
 
     val test = Test::class.kodable().dekode(""" {"index": [[1, 2]], "format": "ae!", "a" : { "aee" : 1 } } """)
-    println(test.index)
+    println(test.a.iii)
 
     val path = ".data.items".kodablePath()
     val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
@@ -45,6 +45,12 @@ class Test(
         val format = this@Test.format
     }
 }
+
+//@Dekoder
+//sealed class S {
+//    object S1: S()
+//    object S2: S()
+//}
 
 @Dekoder
 data class DTO(val i: Int)

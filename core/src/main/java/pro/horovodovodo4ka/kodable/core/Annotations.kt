@@ -20,6 +20,13 @@ annotation class Dekoder
 annotation class Enkoder
 
 /**
+ * Used for generating kodables for enum classes and data classes
+ */
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.SOURCE)
+annotation class Koder
+
+/**
  * Specifies key in json for current parameter
  */
 @Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.PROPERTY_GETTER)
