@@ -11,8 +11,12 @@ interface IKodable<Value> {
 
     val list: IKodable<List<Value>> get() = ListKodable(this)
 
-    fun writeValue(writer: JSONWriter, instance: Value?) {
+    fun writeValue(writer: JSONWriter, instance: Value) {
         throw Exception("IKodable: writeValue() is not implemented in '$this'")
+    }
+
+    fun writeValueOrNull(writer: JSONWriter, instance: Value?) {
+        instance?.run { writeValue(writer, instance) } ?: writer.writeNull()
     }
 }
 

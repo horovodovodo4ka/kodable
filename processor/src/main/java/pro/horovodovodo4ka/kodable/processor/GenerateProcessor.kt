@@ -1,6 +1,7 @@
 package pro.horovodovodo4ka.kodable.processor
 
 import com.github.fluidsonic.fluid.json.JSONReader
+import com.github.fluidsonic.fluid.json.JSONWriter
 import com.google.auto.service.AutoService
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
@@ -43,6 +44,7 @@ import pro.horovodovodo4ka.kodable.core.defaults.LongKodable
 import pro.horovodovodo4ka.kodable.core.defaults.NumberKodable
 import pro.horovodovodo4ka.kodable.core.defaults.ShortKodable
 import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
+import pro.horovodovodo4ka.kodable.core.utils.propertyAssert
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.DEKODER
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.ENKODER
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.KODER
@@ -100,8 +102,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
 
         val LIST_TYPE = kotlin.collections.List::class.asClassName()
+        val KCLASS_TYPE = KClass::class.asClassName()
         val KODABLE_INTERFACE_TYPE = IKodable::class.asClassName()
         val READER_TYPE = JSONReader::class.asClassName()
+        val WRITER_TYPE = JSONWriter::class.asClassName()
     }
 
     override fun getSupportedAnnotationTypes(): MutableSet<String> = mutableSetOf(
@@ -137,7 +141,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     // selector
 
-    class ProcessorDesc(val processor: ProcessorType, val targetType: TypeElement, val typeDekoder: Element? = null, val typeEnkoder: Element? = null)
+    class ProcessorDesc(val processor: ProcessorType, val targetType: ClassName, val typeDekoderOrKoder: Element? = null, val typeEnkoder: Element? = null)
 
     private val prefetchedTypes = mutableListOf<TypeName>()
     private val prefetchedProcessors = mutableListOf<ProcessorDesc>()
@@ -146,35 +150,37 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
 
+        val targetType = fixType(clz.asClassName())
+
         val processsor: ProcessorDesc = when {
-            proto.classKind == Kind.ENUM_CLASS && annotationKind == KODER -> ProcessorDesc(ENUM_KODER, clz)
+            proto.classKind == Kind.ENUM_CLASS && annotationKind == KODER -> ProcessorDesc(ENUM_KODER, targetType, element)
             proto.classKind == Kind.CLASS -> when {
-                proto.sealedSubclassFqNameCount > 0 -> throw Exception("Sealed classes is not supported: '$clz'")
-                proto.isDataClass && annotationKind == KODER -> ProcessorDesc(DATACLASS_KODER, clz)
-                proto.isInnerClass && annotationKind == ENKODER -> ProcessorDesc(OBJECT_ENKODER, getClass(element.enclosingElement)!!, typeEnkoder = element)
-                annotationKind == DEKODER -> ProcessorDesc(OBJECT_DEKODER, clz, typeDekoder = element)
+                proto.sealedSubclassFqNameCount > 0 -> throw Exception("Sealed classes is not supported: '$targetType'")
+                proto.isDataClass -> if (annotationKind == KODER) ProcessorDesc(DATACLASS_KODER, targetType, element) else null
+                proto.isInnerClass -> if (annotationKind == ENKODER) ProcessorDesc(OBJECT_ENKODER, getClass(element.enclosingElement)!!.asClassName(), typeEnkoder = element) else null
+                annotationKind == DEKODER -> ProcessorDesc(OBJECT_DEKODER, targetType, typeDekoderOrKoder = element)
                 else -> null
             }
             else -> null
         } ?: throw Exception("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
 
-        prefetchedTypes.add(fixType(clz.asClassName()))
+        prefetchedTypes.add(targetType)
         prefetchedProcessors.add(processsor)
     }
 
-    private fun List<ProcessorDesc>.mix() : ProcessorDesc = reduce { a, b ->
+    private fun List<ProcessorDesc>.mix(): ProcessorDesc = reduce { a, b ->
         if (a.targetType != b.targetType) throw Exception("Incompatible processors")
-        return ProcessorDesc(a.processor, a.targetType, a.typeDekoder ?: b.typeDekoder, a.typeEnkoder ?: b.typeEnkoder)
+        return ProcessorDesc(a.processor, a.targetType, a.typeDekoderOrKoder ?: b.typeDekoderOrKoder, a.typeEnkoder ?: b.typeEnkoder)
     }
 
     private fun processPrefetchedTypes() {
         prefetchedProcessors.groupBy { it.targetType }.map {
             val desc = it.value.mix()
             printWarning("Kodable processing: ${desc.targetType}")
-            when(desc.processor) {
-                ENUM_KODER -> generateEnumDekoder(desc.targetType)
-                DATACLASS_KODER -> generateDataClassKoder(desc.targetType)
-                OBJECT_ENKODER, OBJECT_DEKODER -> generateObjectDekoder(desc.targetType, desc.typeDekoder, desc.typeEnkoder)
+            when (desc.processor) {
+                ENUM_KODER -> generateEnumKoder(desc.targetType, desc.typeDekoderOrKoder!!)
+                DATACLASS_KODER -> generateDataClassKoder(desc.targetType, desc.typeDekoderOrKoder!!)
+                OBJECT_ENKODER, OBJECT_DEKODER -> generateObjectKoder(desc.targetType, desc.typeDekoderOrKoder, desc.typeEnkoder)
             }
         }
     }
@@ -321,15 +327,14 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
 // region    =========== Value ===========
 
-    private fun generateDataClassKoder(element: Element): Boolean {
+    private fun generateDataClassKoder(targetType: ClassName, element: Element): Boolean {
         return false
     }
 
-    private fun generateEnumDekoder(element: Element): Boolean {
+    private fun generateEnumKoder(targetType: ClassName, element: Element): Boolean {
         val meta = getEnumClassAndDefault(element) ?: return false
         val nameResolver = meta.typeMeta.data.nameResolver
 
-        val targetType = meta.type.asClassName()
         val targetKodableType = targetType.kodableName()
 
         val newType = TypeSpec
@@ -348,6 +353,15 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                         else
                             addStatement("return enumValueOf<%T>(reader.readString())", targetType)
                     }
+                    .build()
+            )
+            .addFunction(
+                FunSpec
+                    .builder("writeValue")
+                    .addModifiers(OVERRIDE)
+                    .addParameter("writer", WRITER_TYPE)
+                    .addParameter("instance", targetType)
+                    .addStatement("return writer.writeString(instance.name)")
                     .build()
             )
             .build()
@@ -373,12 +387,9 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 // region    =========== Object ===========
 
 
-    private fun generateObjectDekoder(typeElement: Element, dekoderElement: Element?, enkoderElement: Element?): Boolean {
-        val type = getClass(typeElement) ?: return false
-
+    private fun generateObjectKoder(targetType: ClassName, dekoderElement: Element?, enkoderElement: Element?): Boolean {
         val dekoderMeta = getClassAndCostructor(dekoderElement)
 
-        val targetType = type.asClassName()
         val targetKodableType = targetType.kodableName()
 
         val newType = TypeSpec
@@ -415,7 +426,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
                             dekoderParams.forEach {
                                 val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
-                                addStatement(""" "${it.jsonName}" -> ${it.name} = ${it.koderType}$lists.readValueOrNull(reader) """)
+                                addStatement(""" "${it.jsonName}" -> ${it.name} = %T$lists.readValueOrNull(reader) """, it.koderType)
                             }
 
                             addStatement("else -> reader.skipValue()")
@@ -437,7 +448,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val file = FileSpec
             .builder(targetKodableType.packageName(), targetKodableType.simpleName())
-            .addStaticImport("$packageName.core", "defaults.kodable", "utils.propertyAssert")
+            .addStaticImport("$packageName.core", "utils.propertyAssert")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue")
             .addType(newType)
             .addFunction(extFunSpec(targetType, targetKodableType))
@@ -452,8 +463,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
     private fun extFunSpec(type: TypeName, kodableType: ClassName): FunSpec {
-        val kclassType = ParameterizedTypeName.get(KClass::class.asClassName(), type)
-        val kodable = ParameterizedTypeName.get(IKodable::class.asClassName(), type)
+        val kclassType = ParameterizedTypeName.get(KCLASS_TYPE, type)
+        val kodable = ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, type)
 
         return FunSpec
             .builder("kodable")

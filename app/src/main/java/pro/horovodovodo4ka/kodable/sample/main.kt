@@ -52,7 +52,7 @@ class Test(
 //    object S2: S()
 //}
 
-@Dekoder
+@Koder
 data class DTO(val i: Int)
 
 @Dekoder
