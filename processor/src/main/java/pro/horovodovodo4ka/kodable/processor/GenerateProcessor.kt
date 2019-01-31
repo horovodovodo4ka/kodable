@@ -18,6 +18,7 @@ import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
 import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
 import me.eugeniomarletti.kotlin.metadata.classKind
 import me.eugeniomarletti.kotlin.metadata.isDataClass
+import me.eugeniomarletti.kotlin.metadata.isInnerClass
 import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
 import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
@@ -43,6 +44,12 @@ import pro.horovodovodo4ka.kodable.core.defaults.NumberKodable
 import pro.horovodovodo4ka.kodable.core.defaults.ShortKodable
 import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.DEKODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.ENKODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.KODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.DATACLASS_KODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.ENUM_KODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.OBJECT_DEKODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.OBJECT_ENKODER
 import javax.annotation.processing.Processor
 import javax.annotation.processing.RoundEnvironment
 import javax.annotation.processing.SupportedOptions
@@ -93,7 +100,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
 
         val LIST_TYPE = kotlin.collections.List::class.asClassName()
-        val KODABLE_TYPE = IKodable::class.asClassName()
+        val KODABLE_INTERFACE_TYPE = IKodable::class.asClassName()
         val READER_TYPE = JSONReader::class.asClassName()
     }
 
@@ -110,46 +117,66 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         KODER;
     }
 
+    enum class ProcessorType {
+        OBJECT_ENKODER,
+        OBJECT_DEKODER,
+        ENUM_KODER,
+        DATACLASS_KODER
+    }
+
     override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
         if (processed) return false
         roundEnv.getElementsAnnotatedWith(DefaultKodableForType::class.java).forEach(::registerDefaultKodable)
         roundEnv.getElementsAnnotatedWith(Dekoder::class.java).forEach { prefetchTypes(it, DEKODER) }
-//        roundEnv.getElementsAnnotatedWith(Enkoder::class.java).forEach { prefetchTypes(it, ENKODER) }
-//        roundEnv.getElementsAnnotatedWith(Koder::class.java).forEach { prefetchTypes(it, KODER) }
+        roundEnv.getElementsAnnotatedWith(Enkoder::class.java).forEach { prefetchTypes(it, ENKODER) }
+        roundEnv.getElementsAnnotatedWith(Koder::class.java).forEach { prefetchTypes(it, KODER) }
         processPrefetchedTypes()
         processed = true
         return false
     }
 
     // selector
-    private val prefetchedTypes = mutableListOf<TypeName>()
-    private val prefetchedProcessors = mutableListOf<() -> Boolean>()
-    private fun prefetchTypes(element: Element, annotationKind: AnnotationKind) {
 
+    class ProcessorDesc(val processor: ProcessorType, val targetType: TypeElement, val typeDekoder: Element? = null, val typeEnkoder: Element? = null)
+
+    private val prefetchedTypes = mutableListOf<TypeName>()
+    private val prefetchedProcessors = mutableListOf<ProcessorDesc>()
+    private fun prefetchTypes(element: Element, annotationKind: AnnotationKind) {
         val clz = getClass(element) ?: throw Exception("@Dekoder, @Enkoder, @Koder annotations must be used with classes and constructors only")
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
 
-        // TODO encoder
-        val processingFun = when (proto.classKind) {
-            Kind.ENUM_CLASS -> ::generateEnumDekoder
-            Kind.CLASS -> when {
-                proto.isDataClass -> ::generateObjectDekoder
+        val processsor: ProcessorDesc = when {
+            proto.classKind == Kind.ENUM_CLASS && annotationKind == KODER -> ProcessorDesc(ENUM_KODER, clz)
+            proto.classKind == Kind.CLASS -> when {
                 proto.sealedSubclassFqNameCount > 0 -> throw Exception("Sealed classes is not supported: '$clz'")
-                else -> ::generateObjectDekoder
+                proto.isDataClass && annotationKind == KODER -> ProcessorDesc(DATACLASS_KODER, clz)
+                proto.isInnerClass && annotationKind == ENKODER -> ProcessorDesc(OBJECT_ENKODER, getClass(element.enclosingElement)!!, typeEnkoder = element)
+                annotationKind == DEKODER -> ProcessorDesc(OBJECT_DEKODER, clz, typeDekoder = element)
+                else -> null
             }
-            else -> throw Exception("Unsupported type $element: must be class or enum")
-        }
+            else -> null
+        } ?: throw Exception("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
 
         prefetchedTypes.add(fixType(clz.asClassName()))
-        prefetchedProcessors.add {
-            printWarning("Kodable: processing type '$element'")
-            processingFun(element)
-        }
+        prefetchedProcessors.add(processsor)
+    }
+
+    private fun List<ProcessorDesc>.mix() : ProcessorDesc = reduce { a, b ->
+        if (a.targetType != b.targetType) throw Exception("Incompatible processors")
+        return ProcessorDesc(a.processor, a.targetType, a.typeDekoder ?: b.typeDekoder, a.typeEnkoder ?: b.typeEnkoder)
     }
 
     private fun processPrefetchedTypes() {
-        prefetchedProcessors.forEach { it() }
+        prefetchedProcessors.groupBy { it.targetType }.map {
+            val desc = it.value.mix()
+            printWarning("Kodable processing: ${desc.targetType}")
+            when(desc.processor) {
+                ENUM_KODER -> generateEnumDekoder(desc.targetType)
+                DATACLASS_KODER -> generateDataClassKoder(desc.targetType)
+                OBJECT_ENKODER, OBJECT_DEKODER -> generateObjectDekoder(desc.targetType, desc.typeDekoder, desc.typeEnkoder)
+            }
+        }
     }
     // defaults
 
@@ -161,7 +188,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
-            .firstOrNull { it.rawType == KODABLE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
+            .firstOrNull { it.rawType == KODABLE_INTERFACE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
 
         if (defaults[targetType] != null) throw Exception("Default Dekoder for '$element' already defined: ${defaults[targetType]}")
 
@@ -179,7 +206,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         }
     }
 
-    private fun getClassAndCostructor(element: Element): ClassMeta? {
+    private fun getClassAndCostructor(element: Element?): ClassMeta? {
+        element ?: return null
         val type: TypeElement
         val constructor: ExecutableElement
 
@@ -293,41 +321,43 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
 // region    =========== Value ===========
 
+    private fun generateDataClassKoder(element: Element): Boolean {
+        return false
+    }
+
     private fun generateEnumDekoder(element: Element): Boolean {
         val meta = getEnumClassAndDefault(element) ?: return false
         val nameResolver = meta.typeMeta.data.nameResolver
 
-        val clz = meta.type.asClassName()
-        val kodable = clz.kodableName()
-
-        val intrface = ParameterizedTypeName.get(KODABLE_TYPE, clz)
+        val targetType = meta.type.asClassName()
+        val targetKodableType = targetType.kodableName()
 
         val newType = TypeSpec
-            .objectBuilder(kodable)
+            .objectBuilder(targetKodableType)
             .addModifiers(PUBLIC)
-            .addSuperinterface(intrface)
+            .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
             .addFunction(
                 FunSpec
                     .builder("readValue")
                     .addModifiers(OVERRIDE)
                     .addParameter("reader", READER_TYPE)
-                    .returns(clz)
+                    .returns(targetType)
                     .apply {
                         if (meta.defaultEntry != null)
-                            addStatement("return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }", clz)
+                            addStatement("return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }", targetType)
                         else
-                            addStatement("return enumValueOf<%T>(reader.readString())", clz)
+                            addStatement("return enumValueOf<%T>(reader.readString())", targetType)
                     }
                     .build()
             )
             .build()
 
         val file = FileSpec
-            .builder(kodable.packageName(), kodable.simpleName())
+            .builder(targetKodableType.packageName(), targetKodableType.simpleName())
             .addStaticImport("$packageName.core", "defaults.kodable")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
             .addType(newType)
-            .addFunction(extFunSpec(clz, kodable))
+            .addFunction(extFunSpec(targetType, targetKodableType))
             .build()
 
         val output = generatedDir!!
@@ -343,68 +373,74 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 // region    =========== Object ===========
 
 
-    private fun generateObjectDekoder(element: Element): Boolean {
-        val meta = getClassAndCostructor(element) ?: return false
-        val nameResolver = meta.typeMeta.data.nameResolver
+    private fun generateObjectDekoder(typeElement: Element, dekoderElement: Element?, enkoderElement: Element?): Boolean {
+        val type = getClass(typeElement) ?: return false
 
-        val params = meta.constructorMeta.valueParameterList.mapIndexed { idx, parameter ->
-            val variableElement = meta.constructor.parameters[idx]
-            val name = nameResolver.getName(parameter.name).asString()
+        val dekoderMeta = getClassAndCostructor(dekoderElement)
 
-            PropDesc(variableElement, name)
-        }
-
-        val clz = meta.type.asClassName()
-        val kodable = clz.kodableName()
-
-        val intrface = ParameterizedTypeName.get(KODABLE_TYPE, clz)
+        val targetType = type.asClassName()
+        val targetKodableType = targetType.kodableName()
 
         val newType = TypeSpec
-            .objectBuilder(kodable)
+            .objectBuilder(targetKodableType)
             .addModifiers(PUBLIC)
-            .addSuperinterface(intrface)
+            .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
             .addAnnotation(AnnotationSpec.builder(Suppress::class).addMember("\"UNCHECKED_CAST\"").build())
-            .addFunction(
-                FunSpec
-                    .builder("readValue")
-                    .addModifiers(OVERRIDE)
-                    .addParameter("reader", READER_TYPE)
-                    .returns(clz)
-                    .apply {
-                        params.forEach {
-                            addStatement("var ${it.name}: Any? = null")
-                        }
+            .apply {
+                dekoderMeta ?: return@apply
 
-                        addStatement("reader.readFromMapByElementValue {")
-                        addStatement("when (it) {")
+                val dekoderParams = dekoderMeta.run {
+                    val nameResolver = typeMeta.data.nameResolver
+                    constructorMeta.valueParameterList.mapIndexed { idx, parameter ->
+                        val variableElement = constructor.parameters[idx]
+                        val name = nameResolver.getName(parameter.name).asString()
 
-                        params.forEach {
-                            val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
-                            addStatement(""" "${it.jsonName}" -> ${it.name} = ${it.koderType}$lists.readValueOrNull(reader) """)
-                        }
-
-                        addStatement("else -> reader.skipValue()")
-                        addStatement("}")
-                        addStatement("}")
-
-                        params.filter { !it.nullable }.forEach {
-                            addStatement("""propertyAssert(${it.name}, "${it.name}", "$clz")""")
-                        }
-
-                        addStatement("return %T(${params.joinToString(",\n") {
-                            "${it.name} = ${it.name} as ${it.propertyNameString}"
-                        }})", clz)
+                        PropDesc(variableElement, name)
                     }
-                    .build()
-            )
+                }
+
+                addFunction(
+                    FunSpec
+                        .builder("readValue")
+                        .addModifiers(OVERRIDE)
+                        .addParameter("reader", READER_TYPE)
+                        .returns(targetType)
+                        .apply {
+                            dekoderParams.forEach {
+                                addStatement("var ${it.name}: Any? = null")
+                            }
+
+                            addStatement("reader.readFromMapByElementValue {")
+                            addStatement("when (it) {")
+
+                            dekoderParams.forEach {
+                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
+                                addStatement(""" "${it.jsonName}" -> ${it.name} = ${it.koderType}$lists.readValueOrNull(reader) """)
+                            }
+
+                            addStatement("else -> reader.skipValue()")
+                            addStatement("}")
+                            addStatement("}")
+
+                            dekoderParams.filter { !it.nullable }.forEach {
+                                addStatement("""propertyAssert(${it.name}, "${it.name}", "$targetType")""")
+                            }
+
+                            addStatement("return %T(${dekoderParams.joinToString(",\n") {
+                                "${it.name} = ${it.name} as ${it.propertyNameString}"
+                            }})", targetType)
+                        }
+                        .build()
+                )
+            }
             .build()
 
         val file = FileSpec
-            .builder(kodable.packageName(), kodable.simpleName())
+            .builder(targetKodableType.packageName(), targetKodableType.simpleName())
             .addStaticImport("$packageName.core", "defaults.kodable", "utils.propertyAssert")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue")
             .addType(newType)
-            .addFunction(extFunSpec(clz, kodable))
+            .addFunction(extFunSpec(targetType, targetKodableType))
             .build()
 
         val output = generatedDir!!

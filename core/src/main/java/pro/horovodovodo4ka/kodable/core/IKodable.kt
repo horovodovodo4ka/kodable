@@ -2,13 +2,18 @@ package pro.horovodovodo4ka.kodable.core
 
 import com.github.fluidsonic.fluid.json.JSONReader
 import com.github.fluidsonic.fluid.json.JSONToken.nullValue
+import com.github.fluidsonic.fluid.json.JSONWriter
 import com.github.fluidsonic.fluid.json.readListByElement
 
 interface IKodable<Value> {
-    fun readValue(reader: JSONReader): Value = throw Exception("IKodable: readValue() is not implemented in $this")
+    fun readValue(reader: JSONReader): Value = throw Exception("IKodable: readValue() is not implemented in '$this'")
     fun readValueOrNull(reader: JSONReader): Value? = if (reader.nextToken != nullValue) readValue(reader) else reader.readNull()
 
     val list: IKodable<List<Value>> get() = ListKodable(this)
+
+    fun writeValue(writer: JSONWriter, instance: Value?) {
+        throw Exception("IKodable: writeValue() is not implemented in '$this'")
+    }
 }
 
 class ListKodable<Value>(private val valueKodable: IKodable<Value>) : IKodable<List<Value>> {

@@ -32,7 +32,7 @@ class Test(
 
     val b = true
 
-    @Dekoder
+    @Koder
     enum class Foo {
         @Default
         a,
