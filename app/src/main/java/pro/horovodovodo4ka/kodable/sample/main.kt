@@ -3,6 +3,7 @@ package pro.horovodovodo4ka.kodable.sample
 import com.github.fluidsonic.fluid.json.JSONReader
 import pro.horovodovodo4ka.kodable.core.*
 import pro.horovodovodo4ka.kodable.core.utils.dekode
+import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import pro.horovodovodo4ka.kodable.sample.generated.kodable
 import java.text.SimpleDateFormat
@@ -19,15 +20,20 @@ fun main(args: Array<String>) {
     val path = ".data.items".kodablePath()
     val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
     println(e)
+
+    println("case_abc-damn".snakeCaseAsCamelCase())
+
+    println(Test::class.kodable().enkode(test))
 }
 
-@Dekoder
-class Test(
+
+class Test @Dekoder constructor(
     val index: List<List<Int>>?,
     @KodableName("format") val format: String,
     val a: A,
     date: Date?,
-    foo: Foo?
+    foo: Foo?,
+    val `for`: Int?
 ) {
 
     val b = true
@@ -41,8 +47,9 @@ class Test(
 
     @Enkoder
     inner class Out {
-        val index = this@Test.index
-        val format = this@Test.format
+        val int = this@Test.index
+        val string = this@Test.format
+        val `for` = this@Test.`for`
     }
 }
 
