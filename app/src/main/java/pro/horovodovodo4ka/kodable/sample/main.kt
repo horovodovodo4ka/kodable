@@ -21,7 +21,8 @@ fun main(args: Array<String>) {
     val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
     println(e)
 
-    println("case_abc-damn".snakeCaseAsCamelCase())
+    println("case_abc-damn".toCamelCase())
+    println("aSimpleValue".toSnakeCase())
 
     println(Test::class.kodable().enkode(test))
 }

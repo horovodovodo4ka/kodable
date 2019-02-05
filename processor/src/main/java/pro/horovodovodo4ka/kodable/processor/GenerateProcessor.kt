@@ -18,15 +18,18 @@ import com.squareup.kotlinpoet.asTypeName
 import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
 import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
 import me.eugeniomarletti.kotlin.metadata.classKind
+import me.eugeniomarletti.kotlin.metadata.getPropertyOrNull
 import me.eugeniomarletti.kotlin.metadata.getterVisibility
 import me.eugeniomarletti.kotlin.metadata.hasGetter
 import me.eugeniomarletti.kotlin.metadata.isDataClass
 import me.eugeniomarletti.kotlin.metadata.isInnerClass
 import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
+import me.eugeniomarletti.kotlin.metadata.jvm.jvmPropertySignature
 import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Visibility
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.deserialization.returnType
 import me.eugeniomarletti.kotlin.metadata.shadow.serialization.deserialization.getName
 import me.eugeniomarletti.kotlin.metadata.shadow.util.capitalizeDecapitalize.capitalizeFirstWord
 import me.eugeniomarletti.kotlin.metadata.shadow.util.capitalizeDecapitalize.decapitalizeSmart
@@ -256,13 +259,15 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val type = element as? TypeElement ?: return null
         val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
+        val nameResolver = typeMeta.data.nameResolver
         val propertiesMeta = typeMeta.data.classProto.propertyList
             .filter { it.hasGetter && (it.getterVisibility == Visibility.PUBLIC || it.getterVisibility == Visibility.INTERNAL) }
         val properties = ElementFilter.methodsIn(element.enclosedElements)
 
-        val propertiesMap = propertiesMeta.map { "get${typeMeta.data.nameResolver.getString(it.name).capitalize()}()" to it }.toMap()
+        val propertiesMap = propertiesMeta.map { "get${nameResolver.getString(it.name).capitalize()}()" to it }.toMap()
 
-        val sortedPropertiesMeta = properties.mapNotNull { propertiesMap[it.toString()] }
+        val sortedPropertiesMeta = properties
+            .mapNotNull { executableProperty -> propertiesMap[executableProperty.toString()] }
 
         if (sortedPropertiesMeta.isEmpty()) throw Exception("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
 
@@ -483,7 +488,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             addStatement("return %T(", targetType)
                             dekoderParams.forEachIndexed { idx, it ->
                                 val div = if (idx < dekoderParams.size - 1) "," else ""
-                                addStatement("%1N  = %1N as ${it.propertyNameString}$div", it.name)
+                                addStatement("%1N = %1N as ${it.propertyNameString}$div", it.name)
                             }
                             addStatement(")")
                         }
@@ -506,10 +511,9 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                         .addParameter("instance", targetType)
                         .apply {
                             addStatement("with(instance) { ${enkoderMeta.type.asClassName().simpleName()}() }.apply { ")
-                            addStatement("writer.isolateValueWrite {")
-                            addStatement("writeMapStart()")
+                            addStatement("writer.writeIntoMap {")
                             enkoderParams.forEach {
-                                addStatement("""writeMapKey("${it.jsonName}")""")
+                                addStatement("""writeMapElement("${it.jsonName}") {""")
                                 val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
                                 if (it.nullable) {
                                     addStatement("""${it.koderType}$lists.writeValueOrNull(this, %N)""", it.name)
@@ -517,8 +521,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                                 else {
                                     addStatement("""${it.koderType}$lists.writeValue(this, %N)""", it.name)
                                 }
+                                addStatement("}")
                             }
-                            addStatement("writeMapEnd()")
                             addStatement("}")
                             addStatement("}")
                         }
@@ -530,7 +534,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val file = FileSpec
             .builder(targetKodableType.packageName(), targetKodableType.simpleName())
             .addStaticImport("$packageName.core", "utils.propertyAssert")
-            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue", "writeMapElement", "isolateValueWrite")
+            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue", "writeIntoMap", "writeMapElement")
             .addType(newType)
             .addFunction(extFunSpec(targetType, targetKodableType))
             .build()
