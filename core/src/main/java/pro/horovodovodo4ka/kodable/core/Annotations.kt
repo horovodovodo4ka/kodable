@@ -53,3 +53,12 @@ annotation class Default
 @Target(AnnotationTarget.CLASS)
 @Retention(AnnotationRetention.SOURCE)
 annotation class DefaultKodableForType(val type: KClass<*>)
+
+// TODO
+//@Target(AnnotationTarget.CLASS)
+//@Retention(AnnotationRetention.SOURCE)
+//annotation class CamelCaseKeys
+//
+//@Target(AnnotationTarget.CLASS)
+//@Retention(AnnotationRetention.SOURCE)
+//annotation class SnakeCaseKeys

@@ -1,10 +1,7 @@
 package pro.horovodovodo4ka.kodable.sample.anotherpackage
 
 import pro.horovodovodo4ka.kodable.core.KodableName
-import pro.horovodovodo4ka.kodable.core.Dekoder
+import pro.horovodovodo4ka.kodable.core.Koder
 
-@Dekoder
-class A(@KodableName("aee") val iii: Int = 1) {
-    constructor(a: String) : this(1)
-
-}
+@Koder
+data class A(@KodableName("aee") val iii: Int = 1)

@@ -4,6 +4,8 @@ import com.github.fluidsonic.fluid.json.JSONReader
 import pro.horovodovodo4ka.kodable.core.*
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
+import pro.horovodovodo4ka.kodable.core.utils.toCamelCase
+import pro.horovodovodo4ka.kodable.core.utils.toSnakeCase
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import pro.horovodovodo4ka.kodable.sample.generated.kodable
 import java.text.SimpleDateFormat
@@ -48,8 +50,9 @@ class Test @Dekoder constructor(
 
     @Enkoder
     inner class Out {
-        val int = this@Test.index
-        val string = this@Test.format
+        val a = this@Test.a
+        val ints = this@Test.index
+        val format = this@Test.format
         val `for` = this@Test.`for`
     }
 }

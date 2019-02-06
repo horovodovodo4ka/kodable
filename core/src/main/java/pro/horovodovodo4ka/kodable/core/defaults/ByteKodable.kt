@@ -3,7 +3,6 @@ package pro.horovodovodo4ka.kodable.core.defaults
 import com.github.fluidsonic.fluid.json.JSONReader
 import com.github.fluidsonic.fluid.json.JSONWriter
 import com.github.fluidsonic.fluid.json.readByteOrNull
-import com.github.fluidsonic.fluid.json.writeBooleanOrNull
 import com.github.fluidsonic.fluid.json.writeByteOrNull
 import pro.horovodovodo4ka.kodable.core.IKodable
 import kotlin.reflect.KClass
