@@ -1,15 +1,84 @@
-package pro.horovodovodo4ka.kodable.core.types
-
-class JSONException(message: String, cause: Throwable? = null) : RuntimeException(message, cause) {
-
-    companion object {
-
-        internal fun unexpectedCharacter(character: Int, expected: String, characterIndex: Int) =
-            JSONException("(UTF-16 offset $characterIndex) unexpected ${Character.toString(character)}, expected $expected")
-
-        internal fun unexpectedToken(token: JSONToken?, expected: String, characterIndex: Int): JSONException {
-            val tokenString = if (token != null) "'$token'" else "<end of input>"
-            return JSONException("(UTF-16 offset $characterIndex) unexpected token $tokenString, expected $expected")
-        }
-    }
-}
+//package pro.horovodovodo4ka.kodable.core.types
+//
+//import pro.horovodovodo4ka.kodable.core.JSONPath
+//
+//abstract class JSONException(
+//    message: String,
+//    val offset: Int = -1,
+//    val path: JSONPath? = null,
+//    cause: Throwable? = null
+//) : RuntimeException(message, cause) {
+//
+//    override val message
+//        get() = buildMessage(
+//            message = super.message ?: "",
+//            offset = offset,
+//            path = path
+//        )
+//
+//
+//    companion object {
+//
+//        private fun buildMessage(
+//            message: String,
+//            offset: Int,
+//            path: JSONPath?
+//        ) = buildString {
+//            if (path != null) {
+//                append("at ")
+//                append(path.toString())
+//                append(": ")
+//            }
+//
+//            append(message)
+//
+//            if (offset >= 0) {
+//                append(" - at position ")
+//                append(offset)
+//            }
+//        }
+//    }
+//
+//
+//    class Parsing(
+//        message: String,
+//        offset: Int = -1,
+//        path: JSONPath? = null,
+//        cause: Throwable? = null
+//    ) : JSONException(message = message, offset = offset, path = path, cause = cause) {
+//
+//        companion object
+//    }
+//
+//
+//    class Schema(
+//        message: String,
+//        offset: Int = -1,
+//        path: JSONPath? = null,
+//        cause: Throwable? = null
+//    ) : JSONException(message = message, offset = offset, path = path, cause = cause) {
+//
+//        companion object
+//    }
+//
+//
+//    class Serialization(
+//        message: String,
+//        path: JSONPath? = null,
+//        cause: Throwable? = null
+//    ) : JSONException(message = message, path = path, cause = cause) {
+//
+//        companion object
+//    }
+//
+//
+//    class Syntax(
+//        message: String,
+//        offset: Int = -1,
+//        path: JSONPath? = null,
+//        cause: Throwable? = null
+//    ) : JSONException(message = message, offset = offset, path = path, cause = cause) {
+//
+//        companion object
+//    }
+//}

@@ -1,12 +1,13 @@
 package pro.horovodovodo4ka.kodable.processor
 
+import com.github.fluidsonic.fluid.json.JSONReader
+import com.github.fluidsonic.fluid.json.JSONWriter
 import com.google.auto.service.AutoService
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
-import com.squareup.kotlinpoet.KModifier.PRIVATE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.TypeName
@@ -17,21 +18,26 @@ import com.squareup.kotlinpoet.asTypeName
 import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
 import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
 import me.eugeniomarletti.kotlin.metadata.classKind
+import me.eugeniomarletti.kotlin.metadata.getterVisibility
+import me.eugeniomarletti.kotlin.metadata.hasGetter
 import me.eugeniomarletti.kotlin.metadata.isDataClass
+import me.eugeniomarletti.kotlin.metadata.isInnerClass
 import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
 import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Visibility
 import me.eugeniomarletti.kotlin.metadata.shadow.serialization.deserialization.getName
 import me.eugeniomarletti.kotlin.processing.KotlinAbstractProcessor
 import org.jetbrains.annotations.Nullable
 import pro.horovodovodo4ka.kodable.core.CustomKodable
 import pro.horovodovodo4ka.kodable.core.Default
 import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
+import pro.horovodovodo4ka.kodable.core.Dekoder
+import pro.horovodovodo4ka.kodable.core.Enkoder
 import pro.horovodovodo4ka.kodable.core.IKodable
-import pro.horovodovodo4ka.kodable.core.Kodable
 import pro.horovodovodo4ka.kodable.core.KodableName
-import pro.horovodovodo4ka.kodable.core.KodableReader
+import pro.horovodovodo4ka.kodable.core.Koder
 import pro.horovodovodo4ka.kodable.core.defaults.BooleanKodable
 import pro.horovodovodo4ka.kodable.core.defaults.ByteKodable
 import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
@@ -41,6 +47,13 @@ import pro.horovodovodo4ka.kodable.core.defaults.LongKodable
 import pro.horovodovodo4ka.kodable.core.defaults.NumberKodable
 import pro.horovodovodo4ka.kodable.core.defaults.ShortKodable
 import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.DEKODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.ENKODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.KODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.DATACLASS_KODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.ENUM_KODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.OBJECT_DEKODER
+import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.OBJECT_ENKODER
 import javax.annotation.processing.Processor
 import javax.annotation.processing.RoundEnvironment
 import javax.annotation.processing.SupportedOptions
@@ -48,11 +61,9 @@ import javax.annotation.processing.SupportedSourceVersion
 import javax.lang.model.SourceVersion
 import javax.lang.model.element.Element
 import javax.lang.model.element.ElementKind
-import javax.lang.model.element.ElementKind.CLASS
-import javax.lang.model.element.ElementKind.CONSTRUCTOR
 import javax.lang.model.element.ExecutableElement
 import javax.lang.model.element.TypeElement
-import javax.lang.model.element.VariableElement
+import javax.lang.model.type.DeclaredType
 import javax.lang.model.util.ElementFilter
 import javax.tools.Diagnostic
 import kotlin.reflect.KClass
@@ -67,6 +78,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     companion object {
         private var processed = false
+
         val INT_TYPE = Int::class.asClassName()
         val BYTE_TYPE = Byte::class.asClassName()
         val BOOLEAN_TYPE = Boolean::class.asClassName()
@@ -77,7 +89,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val SHORT_TYPE = Short::class.asClassName()
         val STRING_TYPE = String::class.asClassName()
 
-        private val defaults = mapOf(
+        private val defaults = mapOf<TypeName, TypeName>(
             INT_TYPE to IntKodable::class.asClassName(),
             STRING_TYPE to StringKodable::class.asClassName(),
             BYTE_TYPE to ByteKodable::class.asClassName(),
@@ -91,49 +103,96 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
 
         val LIST_TYPE = kotlin.collections.List::class.asClassName()
-        val KODABLE_TYPE = IKodable::class.asClassName()
-        val READER_TYPE = KodableReader::class.asClassName()
+        val KCLASS_TYPE = KClass::class.asClassName()
+        val KODABLE_INTERFACE_TYPE = IKodable::class.asClassName()
+        val READER_TYPE = JSONReader::class.asClassName()
+        val WRITER_TYPE = JSONWriter::class.asClassName()
     }
 
-    override fun getSupportedAnnotationTypes(): MutableSet<String> = mutableSetOf(
-        Kodable::class.java.canonicalName,
+    override fun getSupportedAnnotationTypes() = mutableSetOf(
+        Dekoder::class.java.canonicalName,
+        Enkoder::class.java.canonicalName,
+        Koder::class.java.canonicalName,
         DefaultKodableForType::class.java.canonicalName
     )
+
+    enum class AnnotationKind {
+        DEKODER,
+        ENKODER,
+        KODER;
+    }
+
+    enum class ProcessorType {
+        OBJECT_ENKODER,
+        OBJECT_DEKODER,
+        ENUM_KODER,
+        DATACLASS_KODER
+    }
 
     override fun process(annotations: Set<TypeElement>, roundEnv: RoundEnvironment): Boolean {
         if (processed) return false
         roundEnv.getElementsAnnotatedWith(DefaultKodableForType::class.java).forEach(::registerDefaultKodable)
-        roundEnv.getElementsAnnotatedWith(Kodable::class.java).forEach(::prefetchTypes)
+        roundEnv.getElementsAnnotatedWith(Dekoder::class.java).forEach { prefetchTypes(it, DEKODER) }
+        roundEnv.getElementsAnnotatedWith(Enkoder::class.java).forEach { prefetchTypes(it, ENKODER) }
+        roundEnv.getElementsAnnotatedWith(Koder::class.java).forEach { prefetchTypes(it, KODER) }
         processPrefetchedTypes()
         processed = true
         return false
     }
 
     // selector
-    private val prefetchedTypes = mutableListOf<TypeName>()
-    private val prefetchedProcessors = mutableListOf<() -> Boolean>()
-    private fun prefetchTypes(element: Element) {
-        val clz = getClass(element) ?: throw Exception("@Kodable annotation must be used with classes and constructors only")
+
+    class ProcessorDesc(val processor: ProcessorType, val targetType: ClassName, val typeDekoderOrKoder: Element? = null, val typeEnkoder: Element? = null)
+
+    private val prefetchedDekoders = mutableListOf<TypeName>()
+    private val prefetchedEnkoders = mutableListOf<TypeName>()
+    private val prefetchedProcessors = mutableListOf<ProcessorDesc>()
+    private fun prefetchTypes(element: Element, annotationKind: AnnotationKind) {
+        val clz = getClass(element) ?: throw Exception("@Dekoder, @Enkoder, @Koder annotations must be used with classes and constructors only")
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
-        val processingFun = when (proto.classKind) {
-            Kind.ENUM_CLASS -> ::generateEnumDekoder
-            Kind.CLASS -> when {
-                proto.isDataClass -> ::generateObjectDekoder
-                else -> ::generateObjectDekoder
+
+        val targetType = fixType(clz.asClassName())
+
+        val processsor: ProcessorDesc = when {
+            proto.classKind == Kind.ENUM_CLASS && annotationKind == KODER -> ProcessorDesc(ENUM_KODER, targetType, element)
+            proto.classKind == Kind.CLASS -> when {
+                proto.sealedSubclassFqNameCount > 0 -> throw Exception("Sealed classes is not supported: '$targetType'")
+                proto.isDataClass -> if (annotationKind == KODER) ProcessorDesc(DATACLASS_KODER, targetType, element) else null
+                proto.isInnerClass -> if (annotationKind == ENKODER) ProcessorDesc(OBJECT_ENKODER, getClass(element.enclosingElement)!!.asClassName(), typeEnkoder = element) else null
+                annotationKind == DEKODER -> ProcessorDesc(OBJECT_DEKODER, targetType, typeDekoderOrKoder = element)
+                else -> null
             }
-            else -> throw Exception("Unsupported type $element: must be class or enum")
+            else -> null
+        } ?: throw Exception("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
+
+        when (annotationKind) {
+            DEKODER -> prefetchedDekoders.add(targetType)
+            ENKODER -> prefetchedEnkoders.add(targetType)
+            KODER -> {
+                prefetchedDekoders.add(targetType)
+                prefetchedEnkoders.add(targetType)
+            }
         }
 
-        prefetchedTypes.add(fixType(clz.asClassName()))
-        prefetchedProcessors.add {
-            printWarning("Kodable processing: $element")
-            processingFun(element)
-        }
+        prefetchedProcessors.add(processsor)
+    }
+
+    private fun List<ProcessorDesc>.mix(): ProcessorDesc = reduce { a, b ->
+        if (a.targetType != b.targetType) throw Exception("Incompatible processors")
+        return ProcessorDesc(a.processor, a.targetType, a.typeDekoderOrKoder ?: b.typeDekoderOrKoder, a.typeEnkoder ?: b.typeEnkoder)
     }
 
     private fun processPrefetchedTypes() {
-        prefetchedProcessors.forEach { it() }
+        prefetchedProcessors.groupBy { it.targetType }.map {
+            val desc = it.value.mix()
+            printWarning("Kodable processing: ${desc.targetType}")
+            when (desc.processor) {
+                ENUM_KODER -> generateEnumKoder(desc.targetType, desc.typeDekoderOrKoder!!)
+                DATACLASS_KODER -> generateDataClassKoder(desc.targetType, desc.typeDekoderOrKoder!!)
+                OBJECT_ENKODER, OBJECT_DEKODER -> generateObjectKoder(desc.targetType, desc.typeDekoderOrKoder, desc.typeEnkoder)
+            }
+        }
     }
     // defaults
 
@@ -141,22 +200,42 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         if (element !is TypeElement) return
 
         val kodable = element.asClassName()
-        val targetType = element.annotationMirrors.firstOrNull { it.annotationType.asTypeName() == DefaultKodableForType::class.asTypeName() }
-            ?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) } ?: return
+        val targetType = element.defaultKoder() ?: return
 
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
-            .firstOrNull { it.rawType == KODABLE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
+            .firstOrNull { it.rawType == KODABLE_INTERFACE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
 
-        if (defaults[targetType] != null) throw Exception("Default Kodable for '$element' already defined: ${defaults[targetType]}")
+        if (defaults[targetType] != null) throw Exception("Default Dekoder for '$element' already defined: ${defaults[targetType]}")
 
         defaults[targetType] = kodable
     }
 
     // objects
-    class ClassMeta(val type: TypeElement, val constructor: ExecutableElement, val typeMeta: KotlinClassMetadata, val constructorMeta: ProtoBuf.Constructor)
 
-    private fun getClass(element: Element) : TypeElement? {
+    class KoderMeta(val type: TypeElement, val properties: List<Element>, val typeMeta: KotlinClassMetadata, val propertiesMeta: List<ProtoBuf.Property>)
+
+    private fun getDataClassAndProperties(element: Element?): KoderMeta? {
+        val type: TypeElement = element as? TypeElement ?: return null
+        val constructor = ElementFilter.constructorsIn(type.enclosedElements).firstOrNull() ?: return null
+        val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
+
+        val nameResolver = typeMeta.data.nameResolver
+        val propertiesMeta = typeMeta.data.classProto.propertyList
+            .filter { it.hasGetter && (it.getterVisibility == Visibility.PUBLIC || it.getterVisibility == Visibility.INTERNAL) }
+        val properties = constructor.parameters
+
+        val propertiesMap = propertiesMeta.map { nameResolver.getString(it.name) to it }.toMap()
+
+        val sortedProperties = properties.mapNotNull { executableProperty -> propertiesMap[executableProperty.toString()] }
+        if (sortedProperties.isEmpty()) throw Exception("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
+
+        return KoderMeta(type, properties, typeMeta, sortedProperties)
+    }
+
+    class DekoderMeta(val type: TypeElement, val constructor: ExecutableElement, val typeMeta: KotlinClassMetadata, val constructorMeta: ProtoBuf.Constructor)
+
+    private fun getClass(element: Element): TypeElement? {
         return when (element.kind) {
             ElementKind.CLASS, ElementKind.ENUM -> element as TypeElement
             ElementKind.CONSTRUCTOR -> element.enclosingElement as TypeElement
@@ -164,7 +243,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         }
     }
 
-    private fun getClassAndCostructor(element: Element): ClassMeta? {
+    private fun getClassAndCostructor(element: Element?): DekoderMeta? {
+        element ?: return null
         val type: TypeElement
         val constructor: ExecutableElement
 
@@ -183,29 +263,69 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
         val constructorMeta = constructor.asConstructorOrNull(typeMeta) ?: return null
 
-        if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Kodable annotation, but constructor has no parameters")
+        if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Dekoder annotation, but constructor has no parameters")
 
-        return ClassMeta(type, constructor, typeMeta, constructorMeta)
+        return DekoderMeta(type, constructor, typeMeta, constructorMeta)
     }
 
-    inner class PropDesc(private val parameter: VariableElement, val name: CharSequence) {
-        val jsonName: CharSequence = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.jsonName ?: name
-        val customKoder = parameter.customKoder()
-        val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
-        val nullableSuffix: String = if (nullable) "?" else ""
-        val propertyType: ClassName get() = types.last()
-        val propertyNameString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + nullableSuffix
-        val listNestingCount: Int get() = types.size - 1
-        val koderType: ClassName
-            get() = customKoder ?: defaults[propertyType]
-            ?: prefetchedTypes.firstOrNull { it == propertyType }?.let { propertyType.kodableName() }
-            ?: throw Exception("Kodable for '$propertyType' is not defined and not generated")
+    class EnkoderMeta(val type: TypeElement, val properties: List<Element>, val typeMeta: KotlinClassMetadata, val propertiesMeta: List<ProtoBuf.Property>)
 
-        val types: List<ClassName>
+    private fun getClassAndProperties(element: Element?): EnkoderMeta? {
+        element ?: return null
+
+        val type = element as? TypeElement ?: return null
+        val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
+        val nameResolver = typeMeta.data.nameResolver
+        val propertiesMeta = typeMeta.data.classProto.propertyList
+            .filter { it.hasGetter && (it.getterVisibility == Visibility.PUBLIC || it.getterVisibility == Visibility.INTERNAL) }
+        val properties = ElementFilter.methodsIn(element.enclosedElements)
+
+        val propertiesMap = propertiesMeta.map { "get${nameResolver.getString(it.name).capitalize()}()" to it }.toMap()
+
+        val sortedProperties = properties.mapNotNull { executableProperty -> propertiesMap[executableProperty.toString()] }
+        if (sortedProperties.isEmpty()) throw Exception("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
+
+        return EnkoderMeta(type, properties, typeMeta, sortedProperties)
+    }
+
+    open inner class DekoderProperty(val parameter: Element, val name: CharSequence) {
+        private val types: List<ClassName>
+
+        open val jsonName = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.name ?: name
+        val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
+        val listNestingCount get() = types.size - 1
+
+        val customKoder = parameter.customKoder()
+        val propertyType get() = types.last()
+        val propertyTypeString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + if (nullable) "?" else ""
+        val propertyTypeName: TypeName
+
+        open val koderType
+            get() = customKoder ?: defaults[propertyType]
+            ?: prefetchedDekoders.firstOrNull { it == propertyType }?.let { propertyType.kodableName() }
+            ?: throw Exception("Dekoder for '$propertyType' is not defined and not generated")
 
         init {
-            val typeName = parameter.asType().asTypeName()
+            @Suppress("LeakingThis")
+            val typeName = getPropertyType()
             types = mutableListOf<ClassName>().also { unwrapType(typeName, it) }
+            propertyTypeName = wrapType(types.first(), *types.drop(1).toTypedArray())
+                .let {
+                    if (nullable) it.asNullable()
+                    else it
+                }
+        }
+
+        private fun getPropertyType(): TypeName = when (parameter) {
+            is ExecutableElement -> parameter.returnType.asTypeName()
+            else -> parameter.asType().asTypeName()
+        }
+
+        private fun wrapType(outer: ClassName, vararg inner: ClassName): TypeName {
+            return when (outer) {
+                LIST_TYPE -> ParameterizedTypeName.get(outer, wrapType(inner.first(), *inner.drop(1).toTypedArray()))
+                else -> outer
+            }
         }
 
         private fun unwrapType(type: TypeName, result: MutableList<ClassName>) {
@@ -227,6 +347,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 }
             }
         }
+    }
+
+    inner class EnkoderProperty(parameter: Element, name: CharSequence) : DekoderProperty(parameter, name) {
+        override val koderType: TypeName
+            get() = customKoder ?: defaults[propertyType]
+            ?: prefetchedEnkoders.firstOrNull { it == propertyType }?.let { propertyType.kodableName() }
+            ?: throw Exception("Enkoder for '$propertyType' is not defined and not generated")
     }
 
     private fun fixType(type: ClassName): ClassName = when (type.toString()) {
@@ -266,51 +393,103 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val default = clz.enclosedElements
             .firstOrNull { it.getAnnotationsByType(Default::class.java).isNotEmpty() }
             ?.let { field ->
-                proto.enumEntryList
-                    .firstOrNull { field.toString() == nameResolver.getString(it.name) } ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
+                proto.enumEntryList.firstOrNull { field.toString() == nameResolver.getString(it.name) }
+                    ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
             }
 
         return EnumMeta(element, meta, proto.enumEntryList, default)
     }
 
-
-// region    =========== Value ===========
-
-    private fun generateEnumDekoder(element: Element): Boolean {
-        val meta = getEnumClassAndDefault(element) ?: return false
+    private fun generateDataClassKoder(targetType: ClassName, element: Element): Boolean {
+        val meta = getDataClassAndProperties(element) ?: return false
         val nameResolver = meta.typeMeta.data.nameResolver
 
-        val clz = meta.type.asClassName()
-        val kodable = clz.kodableName()
-
-        val intrface = ParameterizedTypeName.get(KODABLE_TYPE, clz)
-
+        val targetKodableType = targetType.kodableName()
         val newType = TypeSpec
-            .objectBuilder(kodable)
+            .objectBuilder(targetKodableType)
             .addModifiers(PUBLIC)
-            .addSuperinterface(intrface)
-            .addFunction(
-                FunSpec
-                    .builder("readValue")
-                    .addModifiers(OVERRIDE)
-                    .addParameter("reader", READER_TYPE)
-                    .returns(clz)
-                    .apply {
-                        if (meta.defaultEntry != null)
-                            addStatement("return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }", clz)
-                        else
-                            addStatement("return enumValueOf<%T>(reader.readString())", clz)
-                    }
-                    .build()
-            )
+            .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
+            .apply {
+                val dekoderParams = meta.run {
+                    propertiesMeta.mapIndexed { idx, parameter -> DekoderProperty(properties[idx], nameResolver.getName(parameter.name).asString()) }
+                }
+
+                addFunction(
+                    FunSpec
+                        .builder("readValue")
+                        .addModifiers(OVERRIDE)
+                        .addParameter("reader", READER_TYPE)
+                        .returns(targetType)
+                        .apply {
+                            dekoderParams.forEach {
+                                addStatement("var %N: %T = null", it.name, it.propertyTypeName.asNullable())
+                            }
+
+                            beginControlFlow("reader.readFromMapByElementValue")
+                            beginControlFlow("when (it)")
+
+                            dekoderParams.forEach {
+                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
+                                addStatement(""""${it.jsonName}" -> %N = %T$lists.readValueOrNull(reader) """, it.name, it.koderType)
+                            }
+
+                            addStatement("else -> reader.skipValue()")
+                            endControlFlow()
+                            endControlFlow()
+
+                            dekoderParams.filter { !it.nullable }.forEach {
+                                addStatement("""propertyAssert(%N, "${it.name}", "$targetType")""", it.name)
+                            }
+
+                            addStatement("return %T(%>", targetType)
+                            dekoderParams.forEachIndexed { idx, it ->
+                                val forceNonNull = if (it.nullable) "" else "!!"
+                                val div = if (idx < dekoderParams.size - 1) ", " else ""
+                                addStatement("%1N = %1N$forceNonNull$div", it.name)
+                            }
+                            addStatement("%<)")
+                        }
+                        .build()
+                )
+            }
+            .apply {
+                val enkoderParams = meta.run {
+                    propertiesMeta.mapIndexed { idx, parameter -> EnkoderProperty(properties[idx], nameResolver.getName(parameter.name).asString()) }
+                }
+
+                addFunction(
+                    FunSpec
+                        .builder("writeValue")
+                        .addModifiers(OVERRIDE)
+                        .addParameter("writer", WRITER_TYPE)
+                        .addParameter("instance", targetType)
+                        .apply {
+                            beginControlFlow("with(instance)")
+                            beginControlFlow("writer.writeIntoMap")
+                            enkoderParams.forEach {
+                                beginControlFlow("""writeMapElement("${it.jsonName}")""")
+                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
+                                if (it.nullable) {
+                                    addStatement("""%T$lists.writeValueOrNull(this, %N)""", it.koderType, it.name)
+                                } else {
+                                    addStatement("""%T$lists.writeValue(this, %N)""", it.koderType, it.name)
+                                }
+                                endControlFlow()
+                            }
+                            endControlFlow()
+                            endControlFlow()
+                        }
+                        .build()
+                )
+            }
             .build()
 
         val file = FileSpec
-            .builder(kodable.packageName(), kodable.simpleName())
-            .addStaticImport("$packageName.core", "defaults.kodable")
-            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
+            .builder(targetKodableType.packageName(), targetKodableType.simpleName())
+            .addStaticImport("$packageName.core", "utils.propertyAssert")
+            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue", "writeIntoMap", "writeMapElement")
             .addType(newType)
-            .addFunction(extFunSpec(clz, kodable))
+            .addFunction(extFunSpec(targetType, targetKodableType))
             .build()
 
         val output = generatedDir!!
@@ -321,73 +500,156 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         return true
     }
 
-// endregion =========== Value ===========
-
-// region    =========== Object ===========
-
-
-    private fun generateObjectDekoder(element: Element): Boolean {
-        val meta = getClassAndCostructor(element) ?: return false
+    private fun generateEnumKoder(targetType: ClassName, element: Element): Boolean {
+        val meta = getEnumClassAndDefault(element) ?: return false
         val nameResolver = meta.typeMeta.data.nameResolver
 
-        val params = meta.constructorMeta.valueParameterList.mapIndexed { idx, parameter ->
-            val variableElement = meta.constructor.parameters[idx]
-            val name = nameResolver.getName(parameter.name).asString()
-
-            PropDesc(variableElement, name)
-        }
-
-        val clz = meta.type.asClassName()
-        val kodable = clz.kodableName()
-
-        val intrface = ParameterizedTypeName.get(KODABLE_TYPE, clz)
+        val targetKodableType = targetType.kodableName()
 
         val newType = TypeSpec
-            .objectBuilder(kodable)
+            .objectBuilder(targetKodableType)
             .addModifiers(PUBLIC)
-            .addSuperinterface(intrface)
-            .addAnnotation(AnnotationSpec.builder(Suppress::class).addMember("\"UNCHECKED_CAST\"").build())
+            .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
             .addFunction(
                 FunSpec
                     .builder("readValue")
                     .addModifiers(OVERRIDE)
                     .addParameter("reader", READER_TYPE)
-                    .returns(clz)
+                    .returns(targetType)
                     .apply {
-                        params.forEach {
-                            addStatement("var ${it.name}: Any? = null")
-                        }
-
-                        addStatement("reader.readElementsFromMap {")
-                        addStatement("when (it) {")
-
-                        params.forEach {
-                            val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
-                            addStatement(""" "${it.jsonName}" -> ${it.name} = ${it.koderType}$lists.readValueOrNull(reader) """)
-                        }
-
-                        addStatement("else -> reader.skipValue()")
-                        addStatement("}")
-                        addStatement("}")
-
-                        params.filter { !it.nullable }.forEach {
-                            addStatement("""propertyAssert(${it.name}, "${it.name}", "$clz")""")
-                        }
-
-                        addStatement("return %T(${params.joinToString(",\n") {
-                            "${it.name} = ${it.name} as ${it.propertyNameString}"
-                        }})", clz)
+                        if (meta.defaultEntry != null)
+                            addStatement("return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }", targetType)
+                        else
+                            addStatement("return enumValueOf<%T>(reader.readString())", targetType)
                     }
+                    .build()
+            )
+            .addFunction(
+                FunSpec
+                    .builder("writeValue")
+                    .addModifiers(OVERRIDE)
+                    .addParameter("writer", WRITER_TYPE)
+                    .addParameter("instance", targetType)
+                    .addStatement("return writer.writeString(instance.name)")
                     .build()
             )
             .build()
 
         val file = FileSpec
-            .builder(kodable.packageName(), kodable.simpleName())
-            .addStaticImport("$packageName.core", "defaults.kodable", "utils.propertyAssert")
+            .builder(targetKodableType.packageName(), targetKodableType.simpleName())
+            .addStaticImport("$packageName.core", "defaults.kodable")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
             .addType(newType)
-            .addFunction(extFunSpec(clz, kodable))
+            .addFunction(extFunSpec(targetType, targetKodableType))
+            .build()
+
+        val output = generatedDir!!
+        output.mkdir()
+
+        file.writeTo(output)
+
+        return true
+    }
+
+    private fun generateObjectKoder(targetType: ClassName, dekoderElement: Element?, enkoderElement: Element?): Boolean {
+        val dekoderMeta = getClassAndCostructor(dekoderElement)
+        val enkoderMeta = getClassAndProperties(enkoderElement)
+
+        if (dekoderElement == null && enkoderElement == null) throw Exception("Undefined behaviour: didn't find Enkoder and Dekoder for type '$targetType'")
+
+        val targetKodableType = targetType.kodableName()
+
+        val newType = TypeSpec
+            .objectBuilder(targetKodableType)
+            .addModifiers(PUBLIC)
+            .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
+            .apply {
+                dekoderMeta ?: return@apply
+
+                val dekoderParams = dekoderMeta.run {
+                    val nameResolver = typeMeta.data.nameResolver
+                    constructorMeta.valueParameterList.mapIndexed { idx, parameter -> DekoderProperty(constructor.parameters[idx], nameResolver.getName(parameter.name).asString()) }
+                }
+
+                addFunction(
+                    FunSpec
+                        .builder("readValue")
+                        .addModifiers(OVERRIDE)
+                        .addParameter("reader", READER_TYPE)
+                        .returns(targetType)
+                        .apply {
+                            dekoderParams.forEach {
+                                addStatement("var %N: %T = null", it.name, it.propertyTypeName.asNullable())
+                            }
+
+                            beginControlFlow("reader.readFromMapByElementValue")
+                            beginControlFlow("when (it)")
+
+                            dekoderParams.forEach {
+                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
+                                addStatement(""""${it.jsonName}" -> %N = %T$lists.readValueOrNull(reader) """, it.name, it.koderType)
+                            }
+
+                            addStatement("else -> reader.skipValue()")
+                            endControlFlow()
+                            endControlFlow()
+
+                            dekoderParams.filter { !it.nullable }.forEach {
+                                addStatement("""propertyAssert(%N, "${it.name}", "$targetType")""", it.name)
+                            }
+
+                            addStatement("return %T(%>", targetType)
+                            dekoderParams.forEachIndexed { idx, it ->
+                                val forceNonNull = if (it.nullable) "" else "!!"
+                                val div = if (idx < dekoderParams.size - 1) ", " else ""
+                                addStatement("%1N = %1N$forceNonNull$div", it.name)
+                            }
+                            addStatement("%<)")
+                        }
+                        .build()
+                )
+            }
+            .apply {
+                enkoderMeta ?: return@apply
+
+                val enkoderParams = enkoderMeta.run {
+                    val nameResolver = typeMeta.data.nameResolver
+                    propertiesMeta.mapIndexed { idx, parameter -> EnkoderProperty(properties[idx], nameResolver.getName(parameter.name).asString()) }
+                }
+
+                addFunction(
+                    FunSpec
+                        .builder("writeValue")
+                        .addModifiers(OVERRIDE)
+                        .addParameter("writer", WRITER_TYPE)
+                        .addParameter("instance", targetType)
+                        .apply {
+                            beginControlFlow("with(instance) { ${enkoderMeta.type.asClassName().simpleName()}() }.apply")
+                            beginControlFlow("writer.writeIntoMap")
+                            enkoderParams.forEach {
+                                beginControlFlow("""writeMapElement("${it.jsonName}")""")
+                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
+                                if (it.nullable) {
+                                    addStatement("""%T$lists.writeValueOrNull(this, %N)""", it.koderType, it.name)
+                                } else {
+                                    addStatement("""%T$lists.writeValue(this, %N)""", it.koderType, it.name)
+                                }
+                                endControlFlow()
+                            }
+                            endControlFlow()
+                            endControlFlow()
+                        }
+                        .build()
+                )
+            }
+            .build()
+
+        val file = FileSpec
+            .builder(targetKodableType.packageName(), targetKodableType.simpleName())
+            .addStaticImport("$packageName.core", "utils.propertyAssert")
+            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue", "writeIntoMap", "writeMapElement")
+            .addType(newType)
+            .addFunction(extFunSpec(targetType, targetKodableType))
             .build()
 
         val output = generatedDir!!
@@ -399,8 +661,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
     private fun extFunSpec(type: TypeName, kodableType: ClassName): FunSpec {
-        val kclassType = ParameterizedTypeName.get(KClass::class.asClassName(), type)
-        val kodable = ParameterizedTypeName.get(IKodable::class.asClassName(), type)
+        val kclassType = ParameterizedTypeName.get(KCLASS_TYPE, type)
+        val kodable = ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, type)
 
         return FunSpec
             .builder("kodable")
@@ -411,7 +673,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .build()
     }
 
-// endregion =========== Object ===========
 
     private fun printInfo(message: String) {
         messager.printMessage(Diagnostic.Kind.OTHER, message)
@@ -431,5 +692,8 @@ private fun ClassName.kodableName(): ClassName {
     return ClassName(packageName() + ".generated", "${fullName}_Kodable")
 }
 
-private fun Element.customKoder() =
-    annotationMirrors.firstOrNull { it.annotationType.asTypeName() == CustomKodable::class.asTypeName() }?.elementValues?.entries?.firstOrNull()?.value?.value?.let { ClassName.bestGuess(it.toString()) }
+private fun Element.defaultKoder() = annotationValue<DeclaredType>(DefaultKodableForType::class)?.asTypeName()
+private fun Element.customKoder() = annotationValue<DeclaredType>(CustomKodable::class)?.asTypeName()
+
+inline fun <reified T> Element.annotationValue(annotation: KClass<out Annotation>, paramIndex: Int = 0): T? =
+    annotationMirrors.firstOrNull { it.annotationType.asTypeName() == annotation.asTypeName() }?.elementValues?.values?.toList()?.getOrNull(paramIndex)?.value as? T
