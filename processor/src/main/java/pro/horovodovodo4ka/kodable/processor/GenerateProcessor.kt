@@ -270,7 +270,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     class EnkoderMeta(val type: TypeElement, val properties: List<Element>, val typeMeta: KotlinClassMetadata, val propertiesMeta: List<ProtoBuf.Property>)
 
-    private fun getClassAndProperties(element: Element?): EnkoderMeta? {
+    private fun getInnerClassAndProperties(element: Element?): EnkoderMeta? {
         element ?: return null
 
         val type = element as? TypeElement ?: return null
@@ -297,7 +297,6 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val customKoder = parameter.customKoder()
         val propertyType get() = types.last()
-        val propertyTypeString get() = types.joinToString("<") { it.toString() } + types.joinToString(">") { "" } + if (nullable) "?" else ""
         val propertyTypeName: TypeName
 
         open val koderType
@@ -553,7 +552,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     private fun generateObjectKoder(targetType: ClassName, dekoderElement: Element?, enkoderElement: Element?): Boolean {
         val dekoderMeta = getClassAndCostructor(dekoderElement)
-        val enkoderMeta = getClassAndProperties(enkoderElement)
+        val enkoderMeta = getInnerClassAndProperties(enkoderElement)
 
         if (dekoderElement == null && enkoderElement == null) throw Exception("Undefined behaviour: didn't find Enkoder and Dekoder for type '$targetType'")
 

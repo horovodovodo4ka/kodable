@@ -9,6 +9,7 @@ repositories {
 dependencies {
     implementation project(":core")
 
+    implementation "com.github.fluidsonic:fluid-json-basic:0.9.10"
     implementation "me.eugeniomarletti.kotlin.metadata:kotlin-metadata:1.4.0"
     implementation 'com.squareup:kotlinpoet:0.7.0'
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
