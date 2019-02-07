@@ -1,7 +1,14 @@
 apply plugin: 'kotlin'
+apply plugin: 'kotlin-kapt'
 apply plugin: 'maven'
+
+repositories {
+    mavenCentral()
+}
 
 dependencies {
     api "com.github.fluidsonic:fluid-json-basic:0.9.10"
-    api "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
+    implementation "com.github.fluidsonic:fluid-json-basic:0.9.10"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.3.21"
 }
+

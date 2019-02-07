@@ -20,26 +20,3 @@ class ListKodable<Value>(private val valueKodable: IKodable<Value>) : IKodable<L
     override fun readValue(reader: JSONReader): List<Value> = reader.readListByElement { valueKodable.readValue(reader) }
     override fun writeValue(writer: JSONWriter, instance: List<Value>) = writer.writeListByElement(instance) { valueKodable.writeValue(this, it) }
 }
-
-//enum class KodableStrategy{
-//    camelCaseKeys
-//}
-//
-//class KodableReader(string: String, vararg val strategy: KodableStrategy = emptyArray(), private val reader: JSONReader = JSONReader.build(string)) : JSONReader by reader {
-//    override fun readMapKey(): String {
-//        val key = super.readMapKey()
-//        if (!strategy.contains(camelCaseKeys)) return key
-//        return key.toCamelCase()
-//    }
-//
-//}
-//
-//class KodableWriter(stringWriter: StringWriter, vararg val strategy: KodableStrategy = emptyArray(), private val writer: JSONWriter = JSONWriter.build(stringWriter)) : JSONWriter by writer {
-//    override fun writeMapKey(value: String) {
-//        if (!strategy.contains(camelCaseKeys)) super.writeMapKey(value)
-//        super.writeMapKey(value.toSnakeCase())
-//    }
-//}
-//
-//operator fun JSONReader.Companion.invoke(string: String, vararg strategy: KodableStrategy = emptyArray()) = KodableReader(string, *strategy)
-//operator fun JSONWriter.Companion.invoke(stringWriter: StringWriter, vararg strategy: KodableStrategy = emptyArray()) = KodableWriter(stringWriter, *strategy)
