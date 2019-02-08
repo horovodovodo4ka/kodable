@@ -1,7 +1,7 @@
 # kodable
 [![](https://jitpack.io/v/horovodovodo4ka/kodable.svg)](https://jitpack.io/#horovodovodo4ka/kodable)
 
-Reflectionless simple json serizlization/deserializtion library for **kotlin-jvm**
+Reflectionless simple json serialization/deserialization library for **kotlin-jvm**
 
 ## Usage
 
@@ -16,6 +16,8 @@ Features:
 - It's fast in runtime, very fast
 - Compile time check for kodables - if there is no kodable for type
   we'll get exception while compilation
+- no type erasure in runtime - all kodables called directly without any runtime registry, can pass kodables as arguments anywhere
+- simple way for getting kodable for list of elements
 
 Limitations:
  
@@ -182,8 +184,15 @@ data class Event(val caption: String, @CustomKodable(DateKodable::class) val sta
 Note: you can use `@CustomKodable` also for overriding **ANY** default
 kodables including generated and even for primitive types
 
+#### Lists
+Just use kodable's property `list` to get kodable for list of elements of given type
+```kotlin
+val userList: List<User> = User::class.kodable().list.dekode("""[{"name: "Alice"},{"name": "Bob"}]""")
+```
+
 ## TODO
-- [ ] more strong type cheking in compile time
-- [ ] simplify enkoders for trivial classes 
 - [ ] add documentation for KodablePath - helper for skip to subelements
       without describing dummy models
+- [ ] maps as collections additionally to `List`
+- [ ] more strong type cheking in compile time
+- [ ] simplify enkoders for trivial classes 
