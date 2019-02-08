@@ -1,7 +1,14 @@
 package pro.horovodovodo4ka.kodable.sample
 
 import com.github.fluidsonic.fluid.json.JSONReader
-import pro.horovodovodo4ka.kodable.core.*
+import pro.horovodovodo4ka.kodable.core.Default
+import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
+import pro.horovodovodo4ka.kodable.core.Dekoder
+import pro.horovodovodo4ka.kodable.core.Enkoder
+import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.KodableName
+import pro.horovodovodo4ka.kodable.core.Koder
+import pro.horovodovodo4ka.kodable.core.kodablePath
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.kodable.core.utils.toCamelCase

@@ -15,6 +15,21 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.WildcardTypeName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.asTypeName
+import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
+import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
+import me.eugeniomarletti.kotlin.metadata.classKind
+import me.eugeniomarletti.kotlin.metadata.getterVisibility
+import me.eugeniomarletti.kotlin.metadata.hasGetter
+import me.eugeniomarletti.kotlin.metadata.isDataClass
+import me.eugeniomarletti.kotlin.metadata.isInnerClass
+import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
+import me.eugeniomarletti.kotlin.metadata.kaptGeneratedOption
+import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Visibility
+import me.eugeniomarletti.kotlin.metadata.shadow.serialization.deserialization.getName
+import me.eugeniomarletti.kotlin.processing.KotlinAbstractProcessor
 import org.jetbrains.annotations.Nullable
 import pro.horovodovodo4ka.kodable.core.CustomKodable
 import pro.horovodovodo4ka.kodable.core.Default
@@ -40,21 +55,25 @@ import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.DAT
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.ENUM_KODER
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.OBJECT_DEKODER
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.ProcessorType.OBJECT_ENKODER
-import pro.horovodovodo4ka.kodable.processor.tools.KotlinAbstractProcessor
-import javax.annotation.processing.*
+import javax.annotation.processing.Processor
+import javax.annotation.processing.RoundEnvironment
+import javax.annotation.processing.SupportedOptions
+import javax.annotation.processing.SupportedSourceVersion
 import javax.lang.model.SourceVersion
-import javax.lang.model.element.*
+import javax.lang.model.element.Element
+import javax.lang.model.element.ElementKind
+import javax.lang.model.element.ExecutableElement
+import javax.lang.model.element.TypeElement
 import javax.lang.model.type.DeclaredType
 import javax.lang.model.util.ElementFilter
 import javax.tools.Diagnostic
 import kotlin.reflect.KClass
 
-const val KAPT_KOTLIN_GENERATED_OPTION_NAME = "kapt.kotlin.generated"
 const val packageName = "pro.horovodovodo4ka.kodable"
 
 @AutoService(Processor::class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-@SupportedOptions(KAPT_KOTLIN_GENERATED_OPTION_NAME)
+@SupportedOptions(kaptGeneratedOption)
 class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     companion object {
