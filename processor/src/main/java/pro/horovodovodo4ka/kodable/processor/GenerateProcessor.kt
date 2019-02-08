@@ -23,6 +23,7 @@ import me.eugeniomarletti.kotlin.metadata.hasGetter
 import me.eugeniomarletti.kotlin.metadata.isDataClass
 import me.eugeniomarletti.kotlin.metadata.isInnerClass
 import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
+import me.eugeniomarletti.kotlin.metadata.kaptGeneratedOption
 import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind
@@ -68,12 +69,11 @@ import javax.lang.model.util.ElementFilter
 import javax.tools.Diagnostic
 import kotlin.reflect.KClass
 
-const val KAPT_KOTLIN_GENERATED_OPTION_NAME = "kapt.kotlin.generated"
 const val packageName = "pro.horovodovodo4ka.kodable"
 
 @AutoService(Processor::class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
-@SupportedOptions(KAPT_KOTLIN_GENERATED_OPTION_NAME)
+@SupportedOptions(kaptGeneratedOption)
 class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     companion object {

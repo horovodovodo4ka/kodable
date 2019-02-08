@@ -1,5 +1,0 @@
-
-if (System.env.JITPACK) include ':core', ':processor'
-else include ':core', ':processor', ':app'
-
-enableFeaturePreview('STABLE_PUBLISHING')

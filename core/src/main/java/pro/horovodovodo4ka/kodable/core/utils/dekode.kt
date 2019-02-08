@@ -6,18 +6,17 @@ import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.KodablePath
 import java.io.StringWriter
 
-inline fun <reified T> IKodable<T>.dekode(string: String, path: KodablePath? = null): T {
+fun <T> IKodable<T>.dekode(string: String, path: KodablePath? = null): T {
     val reader = JSONReader.build(string)
     path?.go(reader)
     return readValue(reader)
 }
 
-inline fun <reified T> IKodable<T>.enkode(instance: T?) = StringWriter()
-    .run {
-        use {
-            JSONWriter.build(it).use { writer ->
-                writeValueOrNull(writer, instance)
-            }
+fun <T> IKodable<T>.enkode(instance: T?) = StringWriter().run {
+    use {
+        JSONWriter.build(it).use { writer ->
+            writeValueOrNull(writer, instance)
         }
-        toString()
     }
+    toString()
+}
