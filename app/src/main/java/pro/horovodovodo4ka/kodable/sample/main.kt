@@ -1,6 +1,7 @@
 package pro.horovodovodo4ka.kodable.sample
 
 import com.github.fluidsonic.fluid.json.JSONReader
+import com.github.fluidsonic.fluid.json.JSONWriter
 import pro.horovodovodo4ka.kodable.core.Default
 import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
 import pro.horovodovodo4ka.kodable.core.Dekoder
@@ -83,6 +84,7 @@ class B1(i: Int?, val a: String) : B(i ?: 10)
 object DateKodable : IKodable<Date> {
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
     override fun readValue(reader: JSONReader): Date = formatter.parse(reader.readString())
+    override fun writeValue(writer: JSONWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 
 
