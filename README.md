@@ -184,15 +184,55 @@ data class Event(val caption: String, @CustomKodable(DateKodable::class) val sta
 Note: you can use `@CustomKodable` also for overriding **ANY** default
 kodables including generated and even for primitive types
 
-#### Lists
+#### Collections
 Just use kodable's property `list` to get kodable for list of elements of given type
 ```kotlin
 val userList: List<User> = User::class.kodable().list.dekode("""[{"name: "Alice"},{"name": "Bob"}]""")
 ```
 
+#### Advanced usage
+Sometimes data for decoding is nested in some JSON entities. 
+To decode them we need define nesting entities and get sub entity from them. It's boring:
+```json
+{
+  "data": {
+      "user": { 
+          "name": "Alice"
+        }
+    }
+}
+```
+leads to 
+```kotlin
+@Dekoder
+class UserWrapper(val user: User)
+
+@Dekoder
+class DataWrapper(val data: UserWrapper)
+```
+For use with other model more wrappers needed :-(
+
+So! Kodable has special class `KodablePath` describing such nesting - when model is decoded Kodable tries move forward to nested element and then decodes needed model (User in example above)
+
+```kotlin
+User::class.kodable().dekode("...", KodablePath(".data.user"))
+```
+That's it.
+Notation is simple: object's properties are accessed via `.<property_name>` and collections elements are accessed via `[<index_in_collection>]`
+
+Samples of paths:
+```kotlin
+".data.user"
+".data.items[0]"
+"[2]" // in that case root element is JSON array
+"data" // root dot can be ommitted
+```
+
+
 ## TODO
-- [ ] add documentation for KodablePath - helper for skip to subelements
+- [x] add documentation for KodablePath - helper for skip to subelements
       without describing dummy models
 - [ ] maps as collections additionally to `List`
+- [ ] polymorphysm for sealed/trivial classes
 - [ ] more strong type cheking in compile time
 - [ ] simplify enkoders for trivial classes 
