@@ -24,7 +24,7 @@ fun main(args: Array<String>) {
     println(b.i)
 
 
-    val test = Test::class.kodable().dekode(""" {"index": [[1, 2]], "format": "ae!", "a" : { "aee" : 1 } } """)
+    val test = Test::class.kodable().dekode(""" {"index": [[1, 2]], "map" : { "a" : 1, "b" : 2 }, "format": "ae!", "a" : { "aee" : 1 } } """)
     println(test.a.iii)
 
     val path = ".data.items".kodablePath()
@@ -40,6 +40,8 @@ fun main(args: Array<String>) {
 
 class Test @Dekoder constructor(
     val index: List<List<Int>>?,
+//    val i: List<Int>?,
+    val map: Map<String, Int>,
     @KodableName("format") val format: String,
     val a: A,
     date: Date?,
