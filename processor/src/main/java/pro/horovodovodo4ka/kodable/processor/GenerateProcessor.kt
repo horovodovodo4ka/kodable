@@ -103,6 +103,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
 
         val LIST_TYPE = kotlin.collections.List::class.asClassName()
+        val MAP_TYPE = kotlin.collections.Map::class.asClassName()
         val KCLASS_TYPE = KClass::class.asClassName()
         val KODABLE_INTERFACE_TYPE = IKodable::class.asClassName()
         val READER_TYPE = JSONReader::class.asClassName()
@@ -289,14 +290,14 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
     open inner class DekoderProperty(val parameter: Element, val name: CharSequence) {
-        private val types: List<ClassName>
+        private val types: List<Pair<String, ClassName>>
 
         open val jsonName = parameter.getAnnotationsByType(KodableName::class.java).firstOrNull()?.name ?: name
         val nullable = parameter.getAnnotationsByType(Nullable::class.java).isNotEmpty()
-        val listNestingCount get() = types.size - 1
+        val typeNesting get() = types.reversed().joinToString("") { it.first }
 
         val customKoder = parameter.customKoder()
-        val propertyType get() = types.last()
+        val propertyType get() = types.last().second
         val propertyTypeName: TypeName
 
         open val koderType
@@ -307,8 +308,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         init {
             @Suppress("LeakingThis")
             val typeName = getPropertyType()
-            types = mutableListOf<ClassName>().also { unwrapType(typeName, it) }
-            propertyTypeName = wrapType(types.first(), *types.drop(1).toTypedArray())
+            types = mutableListOf<Pair<String, ClassName>>().also { unwrapType(typeName, it) }
+            propertyTypeName = wrapType(types.first().second, *types.drop(1).map { it.second }.toTypedArray())
                 .let {
                     if (nullable) it.asNullable()
                     else it
@@ -322,25 +323,34 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         private fun wrapType(outer: ClassName, vararg inner: ClassName): TypeName {
             return when (outer) {
+                MAP_TYPE -> ParameterizedTypeName.get(outer, STRING_TYPE, wrapType(inner.first(), *inner.drop(1).toTypedArray()))
                 LIST_TYPE -> ParameterizedTypeName.get(outer, wrapType(inner.first(), *inner.drop(1).toTypedArray()))
                 else -> outer
             }
         }
 
-        private fun unwrapType(type: TypeName, result: MutableList<ClassName>) {
+        private fun unwrapType(type: TypeName, result: MutableList<Pair<String, ClassName>>) {
             when (type) {
                 is ParameterizedTypeName -> {
                     val genericType = fixType(type.rawType)
-                    if (genericType != LIST_TYPE) throw Exception("Only kotlin.collections.List is allowed! $genericType found")
-                    result.add(genericType)
-                    unwrapType(type.typeArguments.first(), result)
+                    when (genericType) {
+                        LIST_TYPE -> {
+                            result.add(".list" to genericType)
+                            unwrapType(type.typeArguments.first(), result)
+                        }
+                        MAP_TYPE -> {
+                            result.add(".dictionary" to genericType)
+                            unwrapType(type.typeArguments[1], result)
+                        }
+                        else -> throw Exception("Only kotlin.collections.List<*> and kotlin.collections.Map<String, *> is allowed! $genericType found")
+                    }
                 }
                 is WildcardTypeName -> {
                     val upperBounds = type.upperBounds.firstOrNull() ?: throw Exception("Only out variance is allowed for collection")
                     unwrapType(upperBounds, result)
                 }
                 is ClassName -> {
-                    result.add(fixType(type))
+                    result.add("" to fixType(type))
                 }
                 else -> {
                 }
@@ -366,6 +376,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         "java.lang.Integer" -> INT_TYPE
         "java.lang.Number" -> NUMBER_TYPE
         "java.util.List" -> LIST_TYPE
+        "java.util.Map" -> MAP_TYPE
         else -> type
     }
 
@@ -428,8 +439,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             beginControlFlow("when (it)")
 
                             dekoderParams.forEach {
-                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
-                                addStatement(""""${it.jsonName}" -> %N = %T$lists.readValueOrNull(reader) """, it.name, it.koderType)
+                                addStatement(""""${it.jsonName}" -> %N = %T${it.typeNesting}.readValueOrNull(reader) """, it.name, it.koderType)
                             }
 
                             addStatement("else -> reader.skipValue()")
@@ -467,11 +477,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             beginControlFlow("writer.writeIntoMap")
                             enkoderParams.forEach {
                                 beginControlFlow("""writeMapElement("${it.jsonName}")""")
-                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
                                 if (it.nullable) {
-                                    addStatement("""%T$lists.writeValueOrNull(this, %N)""", it.koderType, it.name)
+                                    addStatement("""%T${it.typeNesting}.writeValueOrNull(this, %N)""", it.koderType, it.name)
                                 } else {
-                                    addStatement("""%T$lists.writeValue(this, %N)""", it.koderType, it.name)
+                                    addStatement("""%T${it.typeNesting}.writeValue(this, %N)""", it.koderType, it.name)
                                 }
                                 endControlFlow()
                             }
@@ -585,8 +594,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             beginControlFlow("when (it)")
 
                             dekoderParams.forEach {
-                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
-                                addStatement(""""${it.jsonName}" -> %N = %T$lists.readValueOrNull(reader) """, it.name, it.koderType)
+                                addStatement(""""${it.jsonName}" -> %N = %T${it.typeNesting}.readValueOrNull(reader) """, it.name, it.koderType)
                             }
 
                             addStatement("else -> reader.skipValue()")
@@ -627,11 +635,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             beginControlFlow("writer.writeIntoMap")
                             enkoderParams.forEach {
                                 beginControlFlow("""writeMapElement("${it.jsonName}")""")
-                                val lists = 0.until(it.listNestingCount).joinToString("") { ".list" }
                                 if (it.nullable) {
-                                    addStatement("""%T$lists.writeValueOrNull(this, %N)""", it.koderType, it.name)
+                                    addStatement("""%T${it.typeNesting}.writeValueOrNull(this, %N)""", it.koderType, it.name)
                                 } else {
-                                    addStatement("""%T$lists.writeValue(this, %N)""", it.koderType, it.name)
+                                    addStatement("""%T${it.typeNesting}.writeValue(this, %N)""", it.koderType, it.name)
                                 }
                                 endControlFlow()
                             }

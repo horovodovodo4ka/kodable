@@ -17,8 +17,9 @@ Reflectionless simple json serialization/deserialization library for **kotlin-jv
 
 - Kodable doesn't support default values, only nullability - if property
   is not exists in json object it becomes **null**.
-- Kodable does not support generics, wildcards etc. Only `List<Type>`
-  including nested lists. Used for present json arrays.
+- Kodable does not support generics, wildcards etc. Only `List<{Type}>` and `Map<String, {Type}>`
+  including nested lists and maps. Used for present json arrays and dictionaries.
+- Kodable does not support nullability in that collections.
   
 ## Installation
 Add this dependencies to your `build.grale(.kts)`:
@@ -250,7 +251,7 @@ Samples of paths:
 ## TODO
 - [x] add documentation for KodablePath - helper for skip to subelements
       without describing dummy models
-- [ ] maps as collections additionally to `List`
+- [x] maps as collections additionally to `List`
 - [ ] polymorphysm for sealed/trivial classes
 - [ ] more strong type cheking in compile time
 - [ ] simplify enkoders for trivial classes
