@@ -193,6 +193,7 @@ object DateKodable : IKodable<Date> {
     override fun writeValue(writer: JSONWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 ```
+**Important note: such kodables must be `object`s**
 
 Example of `@CustomKodable`
 ```kotlin
