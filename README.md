@@ -56,7 +56,7 @@ enums.
 `@Enkoder` generates **encoder** for trivial classes - can be applied
 only for inner classes of types needed to be encoded.
 
-#### Data classes
+### Data classes
 
 ```kotlin
 @Koder
@@ -80,7 +80,7 @@ val user = kodable.dekode(""" { "name": "John" } """)
 // user.givenName = null
 ```
 
-#### Enums
+### Enums
 ```kotlin
 @Koder
 enum class Gender {
@@ -102,7 +102,7 @@ val unknown = Gender::class.kodable().dekode(""" "aaaaaa!!!" """)
 // unknown = Gender.unspecified
 ```
 
-#### Trivial classes
+### Trivial classes
 
 ```kotlin
 @Dekoder
@@ -171,7 +171,7 @@ class User(val name: String?, @KodableName("surname") givenName: String?) {
 This is tricky but gives total control over
 serialization/deserialization, even asymmetrical.
 
-#### External classes
+### External classes
 Often you need use external classes (`java.util.Date` as example or
 third party library classes) in your models and you can't modify and
 annotate that classes.
@@ -204,13 +204,13 @@ data class Event(val caption: String, @CustomKodable(DateKodable::class) val sta
 Note: you can use `@CustomKodable` also for overriding **ANY** default
 kodables including generated and even for primitive types
 
-#### Collections
+### Collections
 Just use kodable's property `list` to get kodable for list of elements of given type
 ```kotlin
-val userList: List<User> = User::class.kodable().list.dekode("""[{"name: "Alice"},{"name": "Bob"}]""")
+val userList: List<User> = User::class.kodable().list.dekode("""[{"name": "Alice"},{"name": "Bob"}]""")
 ```
 
-#### Advanced usage
+### Advanced usage
 Sometimes data for decoding is nested in some JSON entities.
 To decode them we need define nesting entities and get sub entity from them. It's boring:
 ```json
