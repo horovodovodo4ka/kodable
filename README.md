@@ -33,7 +33,8 @@ If you use library with Android Studio and IDE doesn't allow you use generated c
 android {
     sourceSets {
         main {
-            java.srcDirs += [file("$buildDir/generated/source/kaptKotlin/debug"), file("$buildDir/generated/source/kaptKotlin/release")]
+            java.srcDirs += [file("$buildDir/generated/source/kaptKotlin/debug")]
+            // file("$buildDir/generated/source/kaptKotlin/release")
         }
     }
 }
