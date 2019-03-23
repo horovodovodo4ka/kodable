@@ -198,7 +198,7 @@ object DateKodable : IKodable<Date> {
 
 Example of `@CustomKodable`
 ```kotlin
-@Dekoder
+@Koder
 data class Event(val caption: String, @CustomKodable(DateKodable::class) val startDate: Date)
 ```
 
