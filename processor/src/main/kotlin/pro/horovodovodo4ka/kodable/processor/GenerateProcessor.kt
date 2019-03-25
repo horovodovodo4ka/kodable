@@ -233,7 +233,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val targetType = element.defaultKoder() ?: return
         val typeMeta: KotlinClassMetadata = element.kotlinMetadata as? KotlinClassMetadata ?: return
 
-        if (typeMeta.data.classProto.classKind != ProtoBuf.Class.Kind.OBJECT) throw Exception("Default kodable '$kodable' for type '$targetType' MUST be an object")
+        if (typeMeta.data.classProto.classKind != ProtoBuf.Class.Kind.OBJECT && typeMeta.data.classProto.classKind != ProtoBuf.Class.Kind.COMPANION_OBJECT)
+            throw Exception("Default kodable '$kodable' for type '$targetType' MUST be an object")
 
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
