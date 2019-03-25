@@ -50,7 +50,7 @@ class KodablePath(path: String) {
 
     init {
         stack = path
-            .split("", "[")
+            .split(".", "[")
             .filter { it.isNotEmpty() }
             .map {
                 Regex("^([0-9]+)\\]$").find(it)?.run { ListElement(groupValues[1].toInt()) } ?: ObjectElement(it)
