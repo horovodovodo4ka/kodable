@@ -73,7 +73,7 @@ import kotlin.reflect.KClass
 
 const val packageName = "pro.horovodovodo4ka.kodable"
 
-class ProcessingException(message: String) : Exception(message)
+class Exception(message: String, val element: Element? = null) : kotlin.Exception(message)
 
 @AutoService(Processor::class)
 @SupportedSourceVersion(SourceVersion.RELEASE_8)
@@ -134,14 +134,12 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         DATACLASS_KODER
     }
 
-    private val processingErrors = mutableListOf<ProcessingException>()
+    private val processingErrors = mutableListOf<kotlin.Exception>()
     fun wrapThrowingCode(block: () -> Unit) {
         try {
             block()
-        } catch (e: ProcessingException) {
+        } catch (e: kotlin.Exception) {
             processingErrors.add(e)
-        } catch (_: kotlin.Exception) {
-
         }
     }
 
@@ -158,7 +156,12 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .takeIf { it.size > 0 }
             ?.apply {
                 outputDir.deleteRecursively()
-                forEach { printError(it.localizedMessage) }
+                forEach { e ->
+                    when {
+                        e is Exception && e.element != null -> printError(e.localizedMessage, e.element)
+                        else -> printError(e.localizedMessage)
+                    }
+                }
             }
         printMessage("Kodable generating finished")
         processed = true
@@ -173,7 +176,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private val prefetchedEnkoders = mutableListOf<TypeName>()
     private val prefetchedProcessors = mutableListOf<ProcessorDesc>()
     private fun prefetchTypes(element: Element, annotationKind: AnnotationKind) {
-        val clz = getClass(element) ?: throw ProcessingException("@Dekoder, @Enkoder, @Koder annotations must be used with classes and constructors only")
+        val clz = getClass(element) ?: throw Exception("@Dekoder, @Enkoder, @Koder annotations must be used with classes and constructors only")
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
         val proto = meta.data.classProto
 
@@ -182,14 +185,14 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val processsor: ProcessorDesc = when {
             proto.classKind == Kind.ENUM_CLASS && annotationKind == KODER -> ProcessorDesc(ENUM_KODER, targetType, element)
             proto.classKind == Kind.CLASS -> when {
-                proto.sealedSubclassFqNameCount > 0 -> throw ProcessingException("Sealed classes is not supported: '$targetType'")
+                proto.sealedSubclassFqNameCount > 0 -> throw Exception("Sealed classes is not supported: '$targetType'")
                 proto.isDataClass -> if (annotationKind == KODER) ProcessorDesc(DATACLASS_KODER, targetType, element) else null
                 proto.isInnerClass -> if (annotationKind == ENKODER) ProcessorDesc(OBJECT_ENKODER, getClass(element.enclosingElement)!!.asClassName(), typeEnkoder = element) else null
                 annotationKind == DEKODER -> ProcessorDesc(OBJECT_DEKODER, targetType, typeDekoderOrKoder = element)
                 else -> null
             }
             else -> null
-        } ?: throw ProcessingException("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
+        } ?: throw Exception("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
 
         when (annotationKind) {
             DEKODER -> prefetchedDekoders.add(targetType)
@@ -204,7 +207,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
     private fun List<ProcessorDesc>.mix(): ProcessorDesc = reduce { a, b ->
-        if (a.targetType != b.targetType) throw ProcessingException("Incompatible processors")
+        if (a.targetType != b.targetType) throw Exception("Incompatible processors")
         return ProcessorDesc(a.processor, a.targetType, a.typeDekoderOrKoder ?: b.typeDekoderOrKoder, a.typeEnkoder ?: b.typeEnkoder)
     }
 
@@ -231,15 +234,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val typeMeta: KotlinClassMetadata = element.kotlinMetadata as? KotlinClassMetadata ?: return
 
         if (typeMeta.data.classProto.classKind != ProtoBuf.Class.Kind.OBJECT && typeMeta.data.classProto.classKind != ProtoBuf.Class.Kind.COMPANION_OBJECT)
-            throw ProcessingException("Default kodable '$kodable' for type '$targetType' MUST be an object")
+            throw Exception("Default kodable '$kodable' for type '$targetType' MUST be an object")
 
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
-            .firstOrNull { it.rawType == KODABLE_INTERFACE_TYPE && it.typeArguments.firstOrNull() == targetType }
-            ?: throw ProcessingException("Type $kodable does not implements IKodable<$targetType>")
+            .firstOrNull { it.rawType == KODABLE_INTERFACE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
 
-        if (defaults[targetType] != null)
-            throw ProcessingException("Default Dekoder for '$element' already defined: ${defaults[targetType]}")
+        if (defaults[targetType] != null) throw Exception("Default Dekoder for '$element' already defined: ${defaults[targetType]}")
 
         defaults[targetType] = kodable
     }
@@ -261,7 +262,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val propertiesMap = propertiesMeta.map { nameResolver.getString(it.name) to it }.toMap()
 
         val sortedProperties = properties.mapNotNull { executableProperty -> propertiesMap[executableProperty.toString()] }
-        if (sortedProperties.isEmpty()) throw ProcessingException("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
+        if (sortedProperties.isEmpty()) throw Exception("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
 
         return KoderMeta(type, properties, typeMeta, sortedProperties)
     }
@@ -296,7 +297,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val typeMeta: KotlinClassMetadata = type.kotlinMetadata as? KotlinClassMetadata ?: return null
         val constructorMeta = constructor.asConstructorOrNull(typeMeta) ?: return null
 
-        if (constructorMeta.valueParameterCount == 0) throw ProcessingException("Class '$type' (or it's constructor) is marked by Dekoder annotation, but constructor has no parameters")
+        if (constructorMeta.valueParameterCount == 0) throw Exception("Class '$type' (or it's constructor) is marked by Dekoder annotation, but constructor has no parameters")
 
         return DekoderMeta(type, constructor, typeMeta, constructorMeta)
     }
@@ -316,7 +317,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val propertiesMap = propertiesMeta.map { "get${nameResolver.getString(it.name).capitalize()}()" to it }.toMap()
 
         val sortedProperties = properties.mapNotNull { executableProperty -> propertiesMap[executableProperty.toString()] }
-        if (sortedProperties.isEmpty()) throw ProcessingException("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
+        if (sortedProperties.isEmpty()) throw Exception("Inner class '$type' is marked by Enkoder annotation, but has no parameters with public getters")
 
         return EnkoderMeta(type, properties, typeMeta, sortedProperties)
     }
@@ -373,11 +374,11 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                             result.add(".dictionary" to genericType)
                             unwrapType(type.typeArguments[1], result)
                         }
-                        else -> throw ProcessingException("Only kotlin.collections.List<*> and kotlin.collections.Map<String, *> is allowed! $genericType found")
+                        else -> throw Exception("Only kotlin.collections.List<*> and kotlin.collections.Map<String, *> is allowed! $genericType found")
                     }
                 }
                 is WildcardTypeName -> {
-                    val upperBounds = type.upperBounds.firstOrNull() ?: throw ProcessingException("Only out variance is allowed for collection")
+                    val upperBounds = type.upperBounds.firstOrNull() ?: throw Exception("Only out variance is allowed for collection")
                     unwrapType(upperBounds, result)
                 }
                 is ClassName -> {
@@ -435,7 +436,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .firstOrNull { it.getAnnotationsByType(Default::class.java).isNotEmpty() }
             ?.let { field ->
                 proto.enumEntryList.firstOrNull { field.toString() == nameResolver.getString(it.name) }
-                    ?: throw ProcessingException("Annotation @Default must be used only with enum value, not enum property")
+                    ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
             }
 
         return EnumMeta(element, meta, proto.enumEntryList, default)
@@ -588,7 +589,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val dekoderMeta = getClassAndCostructor(dekoderElement)
         val enkoderMeta = getInnerClassAndProperties(enkoderElement)
 
-        if (dekoderElement == null && enkoderElement == null) throw ProcessingException("Undefined behaviour: didn't find Enkoder and Dekoder for type '$targetType'")
+        if (dekoderElement == null && enkoderElement == null) throw Exception("Undefined behaviour: didn't find Enkoder and Dekoder for type '$targetType'")
 
         val targetKodableType = targetType.kodableName()
 
