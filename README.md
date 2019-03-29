@@ -210,6 +210,10 @@ Just use kodable's property `list` to get kodable for list of elements of given 
 ```kotlin
 val userList: List<User> = User::class.kodable().list.dekode("""[{"name": "Alice"},{"name": "Bob"}]""")
 ```
+Also homogeneous (properties values has same type) JSON objects can be decoded to (or encoded from) Map<String, {Type}> with `dictionary` kodable:
+```kotlin
+val links: List<String, URL> = URL::class.kodable().dictionary.dekode("""{"Google Inc.": "https://google.com", "Wikipedia": "https://wikipedia.org"}""")
+```
 
 ### Advanced usage
 Sometimes data for decoding is nested in some JSON entities.
