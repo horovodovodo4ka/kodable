@@ -24,8 +24,8 @@ Reflectionless simple json serialization/deserialization library for **kotlin-jv
 ## Installation
 Add this dependencies to your `build.grale(.kts)`:
 ```groovy
-kapt("com.github.horovodovodo4ka.kodable:processor:1.1.0")
-implementation("com.github.horovodovodo4ka.kodable:core:1.1.0")
+kapt("com.github.horovodovodo4ka.kodable:processor:1.2.4")
+implementation("com.github.horovodovodo4ka.kodable:core:1.2.4")
 ```
 
 If you use library with Android Studio and IDE doesn't allow you use generated code, try to add this:
