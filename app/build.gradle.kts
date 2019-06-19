@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.SourceSet.MAIN_SOURCE_SET_NAME
+
 plugins {
     kotlin("jvm")
     kotlin("kapt")
@@ -10,4 +12,8 @@ dependencies {
     implementation (project(":core"))
 
     kapt (project(":processor"))
+}
+
+sourceSets[MAIN_SOURCE_SET_NAME].java {
+    srcDir("$buildDir/generated/source/kaptKotlin")
 }
