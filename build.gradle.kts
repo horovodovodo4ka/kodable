@@ -10,3 +10,7 @@ allprojects {
         jcenter()
     }
 }
+
+configurations.all {
+    isTransitive = true
+}
