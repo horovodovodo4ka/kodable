@@ -8,9 +8,8 @@ group = "pro.horovodovodo4ka.kodable"
 
 dependencies {
     implementation(kotlin("stdlib"))
-    
-    api(Config.Libs.fluidJson) {
-        forceKotlin()
-        isTransitive = true
-    }
+
+    // gradle 5 transitive dependency for correct .pom
+    implementation(Config.Libs.fluidJson) { forceKotlin() }
+    api(Config.Libs.fluidJson) { forceKotlin() }
 }
