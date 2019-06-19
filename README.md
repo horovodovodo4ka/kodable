@@ -24,8 +24,8 @@ Reflectionless simple json serialization/deserialization library for **kotlin-jv
 ## Installation
 Add this dependencies to your `build.grale(.kts)`:
 ```groovy
-kapt("com.github.horovodovodo4ka.kodable:processor:1.1.0")
-implementation("com.github.horovodovodo4ka.kodable:core:1.1.0")
+kapt("com.github.horovodovodo4ka.kodable:processor:1.2.4")
+implementation("com.github.horovodovodo4ka.kodable:core:1.2.4")
 ```
 
 If you use library with Android Studio and IDE doesn't allow you use generated code, try to add this:
@@ -210,6 +210,10 @@ Just use kodable's property `list` to get kodable for list of elements of given 
 ```kotlin
 val userList: List<User> = User::class.kodable().list.dekode("""[{"name": "Alice"},{"name": "Bob"}]""")
 ```
+Also homogeneous (properties values has same type) JSON objects can be decoded to (or encoded from) Map<String, {Type}> with `dictionary` kodable:
+```kotlin
+val links: List<String, URL> = URL::class.kodable().dictionary.dekode("""{"Google Inc.": "https://google.com", "Wikipedia": "https://wikipedia.org"}""")
+```
 
 ### Advanced usage
 Sometimes data for decoding is nested in some JSON entities.
@@ -257,3 +261,29 @@ Samples of paths:
 - [ ] polymorphysm for sealed/trivial classes
 - [ ] more strong type cheking in compile time
 - [ ] simplify enkoders for trivial classes
+
+## License
+```
+MIT License
+
+Copyright (c) 2019 Anna Sidorova (@horovodovodo4ka)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
