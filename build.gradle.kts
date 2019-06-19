@@ -1,7 +1,6 @@
 plugins {
-    kotlin("jvm") version "1.3.21"
-    kotlin("kapt") version "1.3.21"
-    id("maven")
+    kotlin("jvm") version Config.kotlinVersion
+    kotlin("kapt") version Config.kotlinVersion
 }
 
 allprojects {

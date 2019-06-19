@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="pro.horovodovodo4ka.kodable.sample.MainKt" type="JetRunConfigurationType" factoryName="Kotlin" nameIsGenerated="true">
-    <module name="app_main" />
+    <module name="app" />
     <option name="VM_PARAMETERS" value="" />
     <option name="PROGRAM_PARAMETERS" value="" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
