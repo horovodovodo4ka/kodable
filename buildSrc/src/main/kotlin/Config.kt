@@ -1,7 +1,8 @@
 import org.gradle.api.artifacts.ExternalModuleDependency
+import org.gradle.api.artifacts.ModuleDependency
 
 object Config {
-    const val kotlinVersion = "1.3.31"
+    const val kotlinVersion = "1.3.50"
 
     object Libs {
         const val fluidJson = "com.github.fluidsonic.fluid-json:fluid-json-basic:0.9.22"
@@ -12,4 +13,4 @@ object Config {
 }
 
 
-fun ExternalModuleDependency.forceKotlin() = { exclude(mapOf("group" to "org.jetbrains.kotlin")) }
+fun ExternalModuleDependency.forceKotlin(): ModuleDependency = exclude(mapOf("group" to "org.jetbrains.kotlin"))
