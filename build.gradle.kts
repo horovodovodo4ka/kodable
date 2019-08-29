@@ -15,7 +15,7 @@ configurations.all {
     resolutionStrategy {
         eachDependency {
             if (requested.group == "org.jetbrains.kotlin") {
-                useVersion("1.3.50")
+                useVersion(Config.kotlinVersion)
             }
         }
     }
