@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="pro.horovodovodo4ka.kodable.sample.MainKt" type="JetRunConfigurationType" factoryName="Kotlin" nameIsGenerated="true">
-    <module name="app" />
+    <module name="Kodable.app" />
     <option name="VM_PARAMETERS" value="" />
     <option name="PROGRAM_PARAMETERS" value="" />
     <option name="ALTERNATIVE_JRE_PATH_ENABLED" value="false" />
@@ -9,6 +9,7 @@
     <option name="MAIN_CLASS_NAME" value="pro.horovodovodo4ka.kodable.sample.MainKt" />
     <option name="WORKING_DIRECTORY" value="" />
     <method v="2">
+      <option name="Gradle.BeforeRunTask" enabled="false" tasks="clean" externalProjectPath="$PROJECT_DIR$" vmOptions="" scriptParameters="" />
       <option name="Gradle.BeforeRunTask" enabled="true" tasks="build" externalProjectPath="$PROJECT_DIR$/app" vmOptions="" scriptParameters="" />
       <option name="Make" enabled="true" />
     </method>

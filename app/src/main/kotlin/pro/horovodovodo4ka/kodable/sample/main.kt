@@ -35,8 +35,12 @@ fun main(args: Array<String>) {
     println("aSimpleValue".toSnakeCase())
 
     println(Test::class.kodable().enkode(test))
-}
 
+    println(DependencyTest::class.kodable().enkode(DependencyTest(Dependence(1))))
+}
+//
+@Koder
+data class DependencyTest(val dependency: Dependence)
 
 class Test @Dekoder constructor(
     val index: List<List<Int>>?,
