@@ -705,7 +705,7 @@ private fun KotlinClassMetadata.getResolverAndMeta(): Pair<NameResolver, List<Pr
 
 private fun ClassName.kodableName(): ClassName {
     val fullName = simpleNames().joinToString("_")
-    return ClassName(packageName() + ".generated", "${fullName}_Kodable")
+    return ClassName(listOf(packageName(), "generated").filter { it.isNotEmpty() }.joinToString("."), "${fullName}_Kodable")
 }
 
 private fun Element.defaultKoder() = annotationValue<DeclaredType>(DefaultKodableForType::class)?.asTypeName()

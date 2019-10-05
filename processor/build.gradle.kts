@@ -24,3 +24,6 @@ dependencies {
     compileOnly(Config.Libs.autoservice) { forceKotlin() }
     kapt(Config.Libs.autoservice) { forceKotlin() }
 }
+
+
+apply(from = "${project.rootDir}/mavenizer/gradle-mavenizer.gradle")
