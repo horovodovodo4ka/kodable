@@ -1,7 +1,7 @@
 plugins {
     kotlin("jvm")
     kotlin("kapt")
-    maven
+    `maven-publish`
 }
 
 dependencies {
