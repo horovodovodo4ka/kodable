@@ -20,7 +20,3 @@ configurations.all {
         }
     }
 }
-
-//
-//// for jitpack - https://github.com/sky-uk/gradle-maven-plugin#usage
-//apply(from = "https://raw.githubusercontent.com/sky-uk/gradle-maven-plugin/master/gradle-mavenizer.gradle")

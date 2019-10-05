@@ -498,7 +498,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val targetKodableType = targetType.kodableName()
 
-        val newType = TypeSpec
+        TypeSpec
             .objectBuilder(targetKodableType)
             .addModifiers(targetType.visibility)
             .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
