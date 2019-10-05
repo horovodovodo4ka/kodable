@@ -4,8 +4,6 @@ plugins {
     maven
 }
 
-group = "pro.horovodovodo4ka.kodable"
-
 dependencies {
     implementation(project(":core"))
 
