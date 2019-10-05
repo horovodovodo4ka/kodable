@@ -11,6 +11,7 @@ import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName
+import com.squareup.kotlinpoet.TypeAliasSpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.WildcardTypeName
@@ -497,7 +498,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         val targetKodableType = targetType.kodableName()
 
-        val newType = TypeSpec
+        TypeSpec
             .objectBuilder(targetKodableType)
             .addModifiers(targetType.visibility)
             .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
@@ -525,16 +526,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                     .build()
             )
             .build()
-
-        val file = FileSpec
-            .builder(targetKodableType.packageName(), targetKodableType.simpleName())
-            .addStaticImport("$packageName.core", "utils.propertyAssert", "readValueOrNull", "writeValueOrNull")
-            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName())
-            .addType(newType)
-            .addFunction(extFunSpec(targetType, targetKodableType))
-            .build()
-
-        writeFile(file)
+            .writeToFileWithImports(targetType, targetKodableType)
 
         return true
     }
@@ -693,7 +685,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .build()
     )
 
-//endregion
+    //endregion
 }
 
 private fun KotlinClassMetadata.getResolverAndMeta(): Pair<NameResolver, List<ProtoBuf.Property>> {
@@ -705,7 +697,7 @@ private fun KotlinClassMetadata.getResolverAndMeta(): Pair<NameResolver, List<Pr
 
 private fun ClassName.kodableName(): ClassName {
     val fullName = simpleNames().joinToString("_")
-    return ClassName(packageName() + ".generated", "${fullName}_Kodable")
+    return ClassName(packageName(), "${fullName}_Kodable")
 }
 
 private fun Element.defaultKoder() = annotationValue<DeclaredType>(DefaultKodableForType::class)?.asTypeName()

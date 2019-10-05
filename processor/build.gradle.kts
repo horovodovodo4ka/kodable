@@ -4,8 +4,6 @@ plugins {
     maven
 }
 
-group = "pro.horovodovodo4ka.kodable"
-
 dependencies {
     implementation(project(":core"))
 
@@ -24,3 +22,6 @@ dependencies {
     compileOnly(Config.Libs.autoservice) { forceKotlin() }
     kapt(Config.Libs.autoservice) { forceKotlin() }
 }
+
+
+apply(from = "${project.rootDir}/mavenizer/gradle-mavenizer.gradle")
