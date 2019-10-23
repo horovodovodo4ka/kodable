@@ -4,15 +4,15 @@ import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.sample.B1
 import pro.horovodovodo4ka.kodable.sample.kodable
 
-class Tests : FunSpec() {
-    init {
-        test("defaults while decoding") {
-            val b: B1 = B1::class.kodable().dekode("""{"i": null, "a": "aaaa"}""")
-            b.i.shouldBe(10)
-            b.a.shouldBe("aaaa")
-        }
+class Tests : FunSpec({
+
+    test("defaults while decoding") {
+        val b: B1 = B1::class.kodable().dekode("""{"i": null, "a": "aaaa"}""")
+        b.i.shouldBe(10)
+        b.a.shouldBe("aaaa")
     }
-}
+    
+})
 
 
 //    val test = Test::class.kodable().dekode(""" {"index": [[1, 2]], "map" : { "a" : 1, "b" : 2 }, "format": "ae!", "a" : { "aee" : 1 } } """)
