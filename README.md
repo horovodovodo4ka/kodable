@@ -190,8 +190,8 @@ Example - we define that all dates are ISO8601 in json:
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
-    override fun readValue(reader: JSONReader): Date = formatter.parse(reader.readString())
-    override fun writeValue(writer: JSONWriter, instance: Date) = writer.writeString(formatter.format(instance))
+    override fun readValue(reader: JsonReader): Date = formatter.parse(reader.readString())
+    override fun writeValue(writer: JsonWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 ```
 **Important note: such kodables must be `object`s**

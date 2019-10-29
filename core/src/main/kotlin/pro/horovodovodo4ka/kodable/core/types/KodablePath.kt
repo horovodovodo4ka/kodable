@@ -1,18 +1,18 @@
 package pro.horovodovodo4ka.kodable.core.types
 
-import com.github.fluidsonic.fluid.json.JSONReader
-import com.github.fluidsonic.fluid.json.JSONToken.listEnd
-import com.github.fluidsonic.fluid.json.JSONToken.mapEnd
+import io.fluidsonic.json.JsonReader
+import io.fluidsonic.json.JsonToken.listEnd
+import io.fluidsonic.json.JsonToken.mapEnd
 import pro.horovodovodo4ka.kodable.core.types.KodablePath.PathToken.ListElement
 import pro.horovodovodo4ka.kodable.core.types.KodablePath.PathToken.ObjectElement
 
 class KodablePath(path: String) {
 
     sealed class PathToken {
-        abstract fun process(reader: JSONReader): Boolean
+        abstract fun process(reader: JsonReader): Boolean
 
         class ObjectElement(val key: String) : PathToken() {
-            override fun process(reader: JSONReader): Boolean {
+            override fun process(reader: JsonReader): Boolean {
                 with(reader) {
                     readMapStart()
                     while (nextToken != mapEnd) {
@@ -28,7 +28,7 @@ class KodablePath(path: String) {
         }
 
         class ListElement(val index: Int) : PathToken() {
-            override fun process(reader: JSONReader): Boolean {
+            override fun process(reader: JsonReader): Boolean {
                 with(reader) {
                     readListStart()
                     var counter = 0
@@ -57,7 +57,7 @@ class KodablePath(path: String) {
             }
     }
 
-    internal fun go(reader: JSONReader) {
+    internal fun go(reader: JsonReader) {
         stack.mapIndexed { idx, elm -> idx to elm }
             .firstOrNull { !it.second.process(reader) }
             ?.also {

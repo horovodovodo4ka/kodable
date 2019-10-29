@@ -1,7 +1,7 @@
 package pro.horovodovodo4ka.kodable.processor
 
-import com.github.fluidsonic.fluid.json.JSONReader
-import com.github.fluidsonic.fluid.json.JSONWriter
+import io.fluidsonic.json.JsonReader
+import io.fluidsonic.json.JsonWriter
 import com.google.auto.service.AutoService
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
@@ -123,8 +123,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val MAP_TYPE = kotlin.collections.Map::class.asClassName()
         val KCLASS_TYPE = KClass::class.asClassName()
         val KODABLE_INTERFACE_TYPE = IKodable::class.asClassName()
-        val READER_TYPE = JSONReader::class.asClassName()
-        val WRITER_TYPE = JSONWriter::class.asClassName()
+        val READER_TYPE = JsonReader::class.asClassName()
+        val WRITER_TYPE = JsonWriter::class.asClassName()
 
         private val typesVisibility = mutableMapOf<TypeName, Visibility>()
         private val prefetchedDekoders = mutableListOf<TypeName>()

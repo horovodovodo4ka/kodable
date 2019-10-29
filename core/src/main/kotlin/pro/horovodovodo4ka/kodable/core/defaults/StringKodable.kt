@@ -1,18 +1,18 @@
 package pro.horovodovodo4ka.kodable.core.defaults
 
-import com.github.fluidsonic.fluid.json.JSONReader
-import com.github.fluidsonic.fluid.json.JSONWriter
-import com.github.fluidsonic.fluid.json.readStringOrNull
-import com.github.fluidsonic.fluid.json.writeStringOrNull
+import io.fluidsonic.json.JsonReader
+import io.fluidsonic.json.JsonWriter
+import io.fluidsonic.json.readStringOrNull
+import io.fluidsonic.json.writeStringOrNull
 import pro.horovodovodo4ka.kodable.core.IKodable
 import kotlin.reflect.KClass
 
 object StringKodable : IKodable<String> {
-    override fun readValue(reader: JSONReader): String = reader.readString()
-    fun readValueOrNull(reader: JSONReader): String? = reader.readStringOrNull()
+    override fun readValue(reader: JsonReader): String = reader.readString()
+    fun readValueOrNull(reader: JsonReader): String? = reader.readStringOrNull()
 
-    override fun writeValue(writer: JSONWriter, instance: String) = writer.writeString(instance)
-    fun writeValueOrNull(writer: JSONWriter, instance: String?) = writer.writeStringOrNull(instance)
+    override fun writeValue(writer: JsonWriter, instance: String) = writer.writeString(instance)
+    fun writeValueOrNull(writer: JsonWriter, instance: String?) = writer.writeStringOrNull(instance)
 
     override val list by lazy { super.list }
 }
