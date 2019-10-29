@@ -8,3 +8,4 @@ enum class StructureCharacter(val char: Char) {
     NAME_SEPARATOR(':'),
     VALUE_SEPARATOR(',');
 }
+
