@@ -60,7 +60,9 @@ data class DTO(val i: Int)
 open class B(val i: Int)
 
 @Dekoder
-class B1(i: Int?, val a: String) : B(i ?: 10)
+class B1(i: Int?, val a: String) : B(i ?: 10) {
+    companion object
+}
 
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {

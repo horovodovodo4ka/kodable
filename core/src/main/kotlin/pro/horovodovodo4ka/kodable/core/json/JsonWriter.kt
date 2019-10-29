@@ -6,8 +6,8 @@ interface JsonWriter {
     fun writeString(value: String)
     fun writeNull()
 
-    fun readArrayStart()
-    fun readArrayEnd()
+    fun writeArrayStart()
+    fun writeArrayEnd()
 
     fun readObjectStart()
     fun readObjectEnd()
