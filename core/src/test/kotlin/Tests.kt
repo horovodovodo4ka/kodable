@@ -9,6 +9,7 @@ import pro.horovodovodo4ka.kodable.core.json.arrayElement
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
 import pro.horovodovodo4ka.kodable.core.json.objectProperty
 import pro.horovodovodo4ka.kodable.core.json.record
+import pro.horovodovodo4ka.kodable.core.types.PolymorphicKodable
 import pro.horovodovodo4ka.kodable.core.types.kodablePath
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
@@ -47,6 +48,10 @@ class SerializersTest : FunSpec({
     test("encoder: external kodable") {
         val str = DependencyTest::class.kodable().enkode(DependencyTest(Dependence(1)))
         str.shouldBe("{\"dependency\":{\"some\":1}}")
+    }
+
+    test("polymorphic") {
+
     }
 })
 

@@ -9,11 +9,11 @@ import pro.horovodovodo4ka.kodable.core.Enkoder
 import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.KodableName
 import pro.horovodovodo4ka.kodable.core.Koder
+import pro.horovodovodo4ka.kodable.core.types.PolymorphicKodable
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import kotlin.reflect.KClass
 
 //
 @Koder
@@ -67,10 +67,23 @@ class B1(i: Int?, val a: String) : B(i ?: 10) {
 
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {
-    override val type = Date::class
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
     override fun readValue(reader: JsonReader): Date = formatter.parse(reader.readString())
     override fun writeValue(writer: JsonWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 
 
+interface Poly
+
+@Koder
+data class P1(val i: Int) : Poly
+
+@Koder
+data class P2(val s: String) : Poly
+
+@DefaultKodableForType(Poly::class)
+object PolySerializer: IKodable<Poly> by PolymorphicKodable({
+    propType("poly_type")
+    P1::class with P1Kodable
+    P2::class with P2Kodable
+})

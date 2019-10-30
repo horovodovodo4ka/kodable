@@ -9,12 +9,12 @@ import kotlin.reflect.KClass
 
 typealias PolymorphicDescription<BaseType> = Pair<String, IKodable<BaseType>>
 
-class PolymorphicKodable<BaseType: Any>(config: PolymorphicKodable<BaseType>.DSL.() -> Unit) : IKodable<BaseType> {
+class PolymorphicKodable<BaseType: Any>(config: PolymorphicKodable<BaseType>.Config.() -> Unit) : IKodable<BaseType> {
 
     private var typeProperty: String = "type"
     private val polymorphicKoders = mutableMapOf<KClass<out BaseType>, IKodable<out BaseType>>()
 
-    inner class DSL {
+    inner class Config {
         fun propType(typeProperty: String) {
             this@PolymorphicKodable.typeProperty = typeProperty
         }
@@ -33,21 +33,22 @@ class PolymorphicKodable<BaseType: Any>(config: PolymorphicKodable<BaseType>.DSL
                 else skipValue()
             }
         }
-
-        val koder = polymorphicKoders[polymorphicTag] ?: throw Exception("Unknown polymorphic case '$polymorphicTag' in ${this::class}")
-
-        return koder.readValue(snapshot)
+//
+//        val koder = polymorphicKoders[polymorphicTag] ?: throw Exception("Unknown polymorphic case '$polymorphicTag' in ${this::class}")
+//
+//        return koder.readValue(snapshot)
+        TODO()
     }
 
     override fun writeValue(writer: JsonWriter, instance: BaseType) {
-        val (polymorpicTag, kodable) = kodersByClass[instance::class] ?: throw Exception("Unknown polymorphic case '${instance::class}' in ${this::class}")
-
-        val props = sequenceOf(
-            objectProperty(typeProperty) { writeString(polymorpicTag) },
-            objectProperty(valueProperty) { kodable.writeValue(this, instance) }
-        )
-
-        writer.iterateObject(props)
+//        val (polymorpicTag, kodable) = kodersByClass[instance::class] ?: throw Exception("Unknown polymorphic case '${instance::class}' in ${this::class}")
+//
+//        val props = sequenceOf(
+//            objectProperty(typeProperty) { writeString(polymorpicTag) },
+//            objectProperty(valueProperty) { kodable.writeValue(this, instance) }
+//        )
+//
+//        writer.iterateObject(props)
     }
 }
 
@@ -58,9 +59,9 @@ class PolymorphicKodable<BaseType: Any>(config: PolymorphicKodable<BaseType>.DSL
 //    return PolymorphicKodable(this, typeProperty, valueProperty, (listOf(firstPolymorphicKoder) + polymorphicKoders).toMap())
 //}
 
-inline fun <reified BaseType: Any> polymorphic(typeProperty: String = "type",
-                                        valueProperty: String = "value",
-                                        firstPolymorphicKoder: PolymorphicDescription<BaseType>,
-                                        vararg polymorphicKoders: PolymorphicDescription<BaseType>) : IKodable<BaseType> {
-    return PolymorphicKodable(BaseType::class, typeProperty, valueProperty, (listOf(firstPolymorphicKoder) + polymorphicKoders).toMap())
-}
+//inline fun <reified BaseType: Any> polymorphic(typeProperty: String = "type",
+//                                        valueProperty: String = "value",
+//                                        firstPolymorphicKoder: PolymorphicDescription<BaseType>,
+//                                        vararg polymorphicKoders: PolymorphicDescription<BaseType>) : IKodable<BaseType> {
+//    return PolymorphicKodable(BaseType::class, typeProperty, valueProperty, (listOf(firstPolymorphicKoder) + polymorphicKoders).toMap())
+//}
