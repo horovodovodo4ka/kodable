@@ -23,8 +23,6 @@ tasks.withType<Test> {
 dependencies {
     implementation(kotlin("stdlib"))
 
-    api(Config.Libs.fluidJson)
-
     // testing
     testImplementation(project(":sample_dependency"))
     kaptTest(project(":processor"))

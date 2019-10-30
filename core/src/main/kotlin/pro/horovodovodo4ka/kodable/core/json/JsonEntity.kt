@@ -5,7 +5,7 @@ enum class JsonEntity {
     boolean,
     number,
     `null`,
-    `array`,
+    array,
     `object`,
     eof,
     undefined;

@@ -1,16 +1,18 @@
 package pro.horovodovodo4ka.kodable.processor
 
-import io.fluidsonic.json.JsonReader
-import io.fluidsonic.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import com.google.auto.service.AutoService
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
+import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName
+import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeAliasSpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
@@ -162,7 +164,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private fun wrapThrowingCode(block: () -> Unit) {
         try {
             block()
-        } catch (e: kotlin.Exception) {
+        } catch (e: Exception) {
             processingErrors.add(e)
         }
     }
@@ -472,6 +474,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .objectBuilder(targetKodableType)
             .addModifiers(targetType.visibility)
             .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
+//            .addTypeProp(targetType)
             .apply {
                 val dekoderParams = meta.run {
                     propertiesMeta.mapIndexed { idx, parameter -> DekoderProperty(properties[idx], nameResolver.getName(parameter.name).asString()) }
@@ -502,6 +505,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .objectBuilder(targetKodableType)
             .addModifiers(targetType.visibility)
             .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
+//            .addTypeProp(targetType)
             .addFunction(
                 FunSpec
                     .builder("readValue")
@@ -543,6 +547,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .objectBuilder(targetKodableType)
             .addModifiers(targetType.visibility)
             .addSuperinterface(ParameterizedTypeName.get(KODABLE_INTERFACE_TYPE, targetType))
+//            .addTypeProp(targetType)
             .apply {
                 dekoderMeta ?: return@apply
 
@@ -615,13 +620,21 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         val file = FileSpec
             .builder(targetKodableType.packageName(), targetKodableType.simpleName())
             .addStaticImport("$packageName.core", "utils.propertyAssert", "readValueOrNull", "writeValueOrNull")
-            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "readFromMapByElementValue", "writeIntoMap", "writeMapElement")
+            .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "objectProperty")
             .addType(this)
             .addFunction(extFunSpec(targetType, targetKodableType))
             .build()
 
         writeFile(file)
     }
+
+    private fun TypeSpec.Builder.addTypeProp(targetType: ClassName) = addProperty(
+        PropertySpec
+            .builder("type", ParameterizedTypeName.get(KClass::class.asTypeName(), targetType))
+            .addModifiers(OVERRIDE)
+            .initializer("%T::class", targetType)
+            .build()
+    )
 
     private fun TypeSpec.Builder.generateReader(targetType: ClassName, dekoderParams: List<DekoderProperty>) = addFunction(
         FunSpec
@@ -634,7 +647,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                     addStatement("var %N: %T = null", it.name, it.propertyTypeName.asNullable())
                 }
 
-                beginControlFlow("reader.readFromMapByElementValue")
+                beginControlFlow("reader.iterateObject")
                 beginControlFlow("when (it)")
 
                 dekoderParams.forEach {
@@ -669,17 +682,14 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .apply {
                 val contextWrapper = context?.let { "{ ${context.type.asClassName().simpleName()}() }.apply" } ?: ""
                 beginControlFlow("with(instance) $contextWrapper")
-                beginControlFlow("writer.writeIntoMap")
-                enkoderParams.forEach {
-                    beginControlFlow("""writeMapElement("${it.jsonName}")""")
-                    if (it.nullable) {
-                        addStatement("""%T${it.typeNesting}.writeValueOrNull(this, %N)""", it.koderType, it.name)
-                    } else {
-                        addStatement("""%T${it.typeNesting}.writeValue(this, %N)""", it.koderType, it.name)
-                    }
-                    endControlFlow()
+                addStatement("""val properties = sequenceOf(""")
+                enkoderParams.forEachIndexed { index, prop ->
+                    val propertyStatement = if (prop.nullable) "writeValueOrNull" else "writeValue"
+                    val separator = if (index < enkoderParams.lastIndex) "," else ""
+                    addStatement("\tobjectProperty(\"${prop.jsonName}\") { %T${prop.typeNesting}.$propertyStatement(this, %N) }$separator", prop.koderType, prop.name)
                 }
-                endControlFlow()
+                addStatement(""")""")
+                addStatement("writer.iterateObject(properties)")
                 endControlFlow()
             }
             .build()
@@ -696,8 +706,8 @@ private fun KotlinClassMetadata.getResolverAndMeta(): Pair<NameResolver, List<Pr
 }
 
 private fun ClassName.kodableName(): ClassName {
-    val fullName = simpleNames().joinToString("_")
-    return ClassName(packageName(), "${fullName}_Kodable")
+    val fullName = simpleNames().joinToString("")
+    return ClassName(packageName(), "${fullName}Kodable")
 }
 
 private fun Element.defaultKoder() = annotationValue<DeclaredType>(DefaultKodableForType::class)?.asTypeName()

@@ -14,51 +14,68 @@ import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_ARRAY
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_OBJECT
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.NAME_SEPARATOR
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.VALUE_SEPARATOR
-import java.io.InputStream
+import java.io.Reader
 
-open class DefaultJsonReader(private val input: InputStream) : JsonReader {
+internal class DefaultJsonReader(private val input: Reader) : JsonReader {
 
     companion object {
         const val chunkSize = 1024
     }
 
-    private lateinit var buffer: String
+    private val buffer = CharArray(chunkSize)
+    private var bufferLen = -1
     private var cursor: Int = -1
     private var chunkCursor: Int = 0
 
-    private fun readFromStream() {
-        buffer = input.readNBytes(chunkSize).toString(charset = Charsets.UTF_8)
-        chunkCursor += buffer.length
+    private var currentChar: Char? = null
+    private var isOutside = true
+    private val relativeCursor: Int get() = cursor - chunkCursor + bufferLen
+
+    init {
+        readNext()
     }
 
-    private var currentChar: Char? = null
+    private fun readFromStream() {
+        bufferLen = input.read(buffer, chunkCursor, chunkSize)
+        chunkCursor += bufferLen
+    }
 
-    private var isOutside = true
+    private var snapshotBuffer: StringBuilder? = null
+    override fun snapshot(block: JsonReader.() -> Unit): String {
+        snapshotBuffer = StringBuilder()
+        block(this)
+        return snapshotBuffer.toString().also { snapshotBuffer = null }
+    }
 
-    private val relativeCursor: Int get() = cursor - chunkCursor + buffer.length
 
     private fun readNextDirty(): Char? {
-        cursor++
-        if (!::buffer.isInitialized) readFromStream()
+        // means eof
+        if (bufferLen == 0) {
+            return this.currentChar
+        }
 
-        if (relativeCursor > buffer.length) {
+        cursor++
+
+        if (bufferLen < 0 || relativeCursor > bufferLen) {
             readFromStream()
         }
 
-        val currentChar = buffer.getOrNull(relativeCursor)
-        this.currentChar = currentChar
-        return currentChar
-    }
-
-    private fun readNext(): Char? {
-        while (true) {
-            val char = readNextDirty()
-            if (isOutside && char != null && char in WhiteSpaces) continue
-            return char
+        return if (relativeCursor >= bufferLen) {
+            this.currentChar = null
+            null
+        } else {
+            buffer.getOrNull(relativeCursor).also { this.currentChar = it }
         }
     }
 
-    private fun skipWitespaces() {
+    private fun readNext(): Char? {
+        currentChar?.also { snapshotBuffer?.append(it) }
+        readNextDirty()
+        if (isOutside) skipWhitespaces()
+        return peek()
+    }
+
+    private fun skipWhitespaces() {
         while (true) {
             val char = peek()
             if (char == null || char !in WhiteSpaces) break
@@ -71,7 +88,6 @@ open class DefaultJsonReader(private val input: InputStream) : JsonReader {
     }
 
     private fun peek(): Char? {
-        if (!::buffer.isInitialized) readNext()
         return currentChar
     }
 
@@ -81,7 +97,8 @@ open class DefaultJsonReader(private val input: InputStream) : JsonReader {
 
     private fun peekExpecting(vararg expected: Char): Char {
         val next = peekStrict()
-        if (next !in expected) throw Exception("Unexpected character @ $cursor: '$next' is not one of: '${expected.joinToString("', '")}'")
+        if (next !in expected)
+            throw Exception("Unexpected character @ $cursor: '$next' is not one of: '${expected.joinToString("', '")}'")
         return next
     }
 
@@ -106,11 +123,11 @@ open class DefaultJsonReader(private val input: InputStream) : JsonReader {
         if (nextToken != null && nextToken !in valueEndScope) throw Exception("Value end expected @ $cursor")
     }
 
-    override fun <T> isolateValue(block: () -> T): T {
+    private fun <T> isolateValue(block: () -> T): T {
         isOutside = false
         return block().also {
             isOutside = true
-            skipWitespaces()
+            skipWhitespaces()
         }
     }
 
@@ -212,11 +229,11 @@ open class DefaultJsonReader(private val input: InputStream) : JsonReader {
                         '"' -> {
                             result.append(char)
                         }
-                        'b' -> result.append('\b')
-                        'f' -> result.append('\u000C')
                         't' -> result.append('\t')
                         'n' -> result.append('\n')
                         'r' -> result.append('\r')
+                        'b' -> result.append('\b')
+                        'f' -> result.append('\u000C')
                         'u' -> {
                             val char1 = readExpecting(*hexDigits).parseHexDigit() shl 12
                             val char2 = readExpecting(*hexDigits).parseHexDigit() shl 8
@@ -290,14 +307,17 @@ open class DefaultJsonReader(private val input: InputStream) : JsonReader {
         readObjectEnd()
     }
 
-    override fun iterateArray(block: JsonReader.() -> Unit) {
+    override fun iterateArray(block: JsonReader.(index: Int) -> Unit) {
         readArrayStart()
 
+        var index = 0
         while (true) {
-            block(this)
+            block(this, index)
 
             if (peek() != VALUE_SEPARATOR.char) break
+
             readNext()
+            index++
         }
 
         readArrayEnd()
@@ -315,7 +335,7 @@ open class DefaultJsonReader(private val input: InputStream) : JsonReader {
     }
 
     override fun skipValue() {
-        when(nextType()) {
+        when (nextType()) {
             string -> readString()
             boolean -> readBoolean()
             number -> readNumber()
@@ -335,7 +355,7 @@ val digits: CharArray = arrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9'
 
 val hexAlphanumeric: CharArray = arrayOf('a', 'b', 'c', 'd', 'e', 'f').toCharArray()
 val hexAlphanumericCapital: CharArray = arrayOf('A', 'B', 'C', 'D', 'E', 'F').toCharArray()
-val hexDigits: CharArray = digits + hexAlphanumeric + hexAlphanumericCapital
+val hexDigits: CharArray = digits + hexAlphanumericCapital + hexAlphanumeric
 
 val controls = arrayOf(
     0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,

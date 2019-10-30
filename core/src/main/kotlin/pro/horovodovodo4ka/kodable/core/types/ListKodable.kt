@@ -1,17 +1,30 @@
 package pro.horovodovodo4ka.kodable.core.types
 
-import io.fluidsonic.json.JsonReader
-import io.fluidsonic.json.JsonWriter
-import io.fluidsonic.json.readListByElement
-import io.fluidsonic.json.writeListByElement
 import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.json.arrayElement
 
 /**
  * Default implementation for `List<ValueType>`
  */
 internal class ListKodable<ValueType>(private val valueKodable: IKodable<ValueType>) : IKodable<List<ValueType>> {
 
-    override fun readValue(reader: JsonReader): List<ValueType> = reader.readListByElement { valueKodable.readValue(reader) }
+    override fun readValue(reader: JsonReader): List<ValueType> {
+        val elements = mutableListOf<ValueType>()
 
-    override fun writeValue(writer: JsonWriter, instance: List<ValueType>) = writer.writeListByElement(instance) { valueKodable.writeValue(this, it) }
+        reader.iterateArray { elements += valueKodable.readValue(this) }
+
+        return elements.toList()
+    }
+
+    override fun writeValue(writer: JsonWriter, instance: List<ValueType>) {
+        val elements = instance
+            .asSequence()
+            .map {
+                arrayElement { valueKodable.writeValue(this, it) }
+            }
+
+        writer.iterateArray(elements)
+    }
 }

@@ -1,8 +1,6 @@
 package pro.horovodovodo4ka.kodable.core.types
 
-import io.fluidsonic.json.JsonReader
-import io.fluidsonic.json.JsonToken.listEnd
-import io.fluidsonic.json.JsonToken.mapEnd
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.types.KodablePath.PathToken.ListElement
 import pro.horovodovodo4ka.kodable.core.types.KodablePath.PathToken.ObjectElement
 
@@ -13,15 +11,11 @@ class KodablePath(path: String) {
 
         class ObjectElement(val key: String) : PathToken() {
             override fun process(reader: JsonReader): Boolean {
-                with(reader) {
-                    readMapStart()
-                    while (nextToken != mapEnd) {
-                        if (readMapKey() == key) return true
-                        skipValue()
+                return runCatching {
+                    reader.iterateObject {
+                        if (it == key) throw Exception("Token found, stop skipping")
                     }
-                    readMapEnd()
-                }
-                return false
+                }.isFailure
             }
 
             override fun toString(): String = ".$key"
@@ -29,17 +23,11 @@ class KodablePath(path: String) {
 
         class ListElement(val index: Int) : PathToken() {
             override fun process(reader: JsonReader): Boolean {
-                with(reader) {
-                    readListStart()
-                    var counter = 0
-                    while (nextToken != listEnd) {
-                        if (index == counter) return true
-                        counter++
-                        skipValue()
+                return runCatching {
+                    reader.iterateArray {
+                        if (index == it) throw Exception()
                     }
-                    readListEnd()
-                }
-                return false
+                }.isFailure
             }
 
             override fun toString(): String = "[$index]"

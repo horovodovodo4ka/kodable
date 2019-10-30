@@ -1,8 +1,8 @@
 package pro.horovodovodo4ka.kodable.core.defaults
 
-import io.fluidsonic.json.JsonReader
-import io.fluidsonic.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import kotlin.reflect.KClass
 
 @JvmName("EnumKodable")

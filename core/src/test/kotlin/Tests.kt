@@ -4,51 +4,132 @@ import io.kotlintest.shouldBe
 import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.FunSpec
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.json.arrayElement
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
+import pro.horovodovodo4ka.kodable.core.json.objectProperty
 import pro.horovodovodo4ka.kodable.core.json.record
+import pro.horovodovodo4ka.kodable.core.types.kodablePath
 import pro.horovodovodo4ka.kodable.core.utils.dekode
+import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.kodable.sample.B1
+import pro.horovodovodo4ka.kodable.sample.Dependence
+import pro.horovodovodo4ka.kodable.sample.DependencyTest
 import pro.horovodovodo4ka.kodable.sample.Test
 import pro.horovodovodo4ka.kodable.sample.kodable
 
-class Tests : FunSpec({
-
-    test("defaults while decoding") {
+class SerializersTest : FunSpec({
+    lateinit var test: Test
+    test("decoder: defaults while decoding") {
         val b: B1 = B1::class.kodable().dekode("""{"i": null, "a": "aaaa"}""")
         b.i.shouldBe(10)
         b.a.shouldBe("aaaa")
     }
 
-    test("nesting decoding test") {
-        val test = Test::class.kodable()
+    test("decoder: nesting decoding test") {
+        test = Test::class.kodable()
             .dekode(""" {"index": [[1, 2]], "map" : { "a" : 1, "b" : 2 }, "format": "ae!", "a" : { "aee" : 1 } } """)
         test.a.iii.shouldBe(1)
+    }
+
+    test("decoder: kodable path") {
+        val path = ".data.items".kodablePath()
+        val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
+        e[0].shouldBe(E.a)
+        e[1].shouldBe(E.unknown)
+    }
+
+    test("encoder: nesting encoding") {
+        val str = Test::class.kodable().enkode(test)
+        str.shouldBe("{\"a\":{\"aee\":1},\"ints\":[[1,2]],\"format\":\"ae!\",\"for\":null}")
+    }
+
+    test("encoder: external kodable") {
+        val str = DependencyTest::class.kodable().enkode(DependencyTest(Dependence(1)))
+        str.shouldBe("{\"dependency\":{\"some\":1}}")
+    }
+})
+
+class EncodingTests : FunSpec({
+    test("string") {
+        val ret = JsonWriter {
+            writeString(" \n\t\rð\"\u001F ")
+        }
+        ret.shouldBe("\" \\n\\t\\rð\\\"\\u001F \"")
+    }
+
+    test("number") {
+        val ret = JsonWriter {
+            writeNumber(-123.423)
+        }
+        ret.shouldBe("-123.423")
+
+        val ret2 = JsonWriter {
+            writeNumber(0.00000000000000014)
+        }
+        ret2.shouldBe("1.4E-16")
+    }
+
+    test("bool") {
+        val ret = JsonWriter {
+            writeBoolean(true)
+        }
+        ret.shouldBe("true")
+    }
+
+    test("nullable") {
+        val ret = JsonWriter {
+            writeNull()
+        }
+        ret.shouldBe("null")
+    }
+
+    test("object") {
+        val props = sequenceOf(
+            objectProperty("a") { writeNumber(1) },
+            objectProperty("b") { writeString("yay!") }
+        )
+        val ret = JsonWriter {
+            iterateObject(props)
+        }
+        ret.shouldBe("{\"a\":1,\"b\":\"yay!\"}")
+    }
+
+    test("array") {
+        val elements = sequenceOf(
+            arrayElement { writeNumber(1) },
+            arrayElement { writeString("yay!") }
+        )
+        val ret = JsonWriter {
+            iterateArray(elements)
+        }
+        ret.shouldBe("[1,\"yay!\"]")
     }
 })
 
 class DecodingTests : FunSpec({
-    test("strings") {
-        val a = JsonReader("\" \\n\\t\\r\\u00F0\\\" \"".byteInputStream()).readString()
+    test("string") {
+        val a = JsonReader("\" \\n\\t\\r\\u00F0\\\" \"").readString()
         a.shouldBe(" \n\t\rð\" ")
     }
 
-    test("numbers") {
-        val a = JsonReader("-1234.23e-1".byteInputStream()).readNumber()
+    test("number") {
+        val a = JsonReader("-1234.23e-1").readNumber()
         a.shouldBe(-123.423)
     }
 
-    test("bools") {
-        val a = JsonReader("true".byteInputStream()).readBoolean()
+    test("bool") {
+        val a = JsonReader("true").readBoolean()
         a.shouldBe(true)
     }
 
     test("nullable") {
-        val a: Int? = JsonReader("null".byteInputStream()).readNull()
+        val a: Int? = JsonReader("null").readNull()
         a.shouldBe(null as Int?)
     }
 
     test("object") {
-        JsonReader("{\"a\": 1, \"b\" : null, \"c\": 1}".byteInputStream()).iterateObject {
+        JsonReader("{\"a\": 1, \"b\" : null, \"c\": 1}").iterateObject {
             when (it) {
                 "a" -> {
                     readNumber().toInt().shouldBe(1)
@@ -67,7 +148,7 @@ class DecodingTests : FunSpec({
     }
 
     test("array") {
-        JsonReader("[1, 2, null]".byteInputStream())
+        JsonReader("[1, 2, null]")
             .iterateArray {
                 val c = if (isNextNull()) readNull() else readNumber().toInt()
                 c.shouldBeOneOf(1, 2, null)
@@ -75,7 +156,7 @@ class DecodingTests : FunSpec({
     }
 
     test("mixed") {
-        JsonReader("[{\"a\":1, \"d\": \"a\"}, {\"b\":2, \"c\": null}]".byteInputStream())
+        JsonReader("[{\"a\":1, \"d\": \"a\"}, {\"b\":2, \"c\": null}]")
             .iterateArray {
                 iterateObject {
                     when (it) {
@@ -94,14 +175,14 @@ class DecodingTests : FunSpec({
     }
 
     test("recorded") {
-        val reader = JsonReader("[{\"type\": \"int\", \"value\": 1}, {\"type\": \"string\", \"value\": \"aaa\"}]".byteInputStream())
+        val reader = JsonReader("[{\"type\": \"int\", \"value\": 1}, {\"type\": \"string\", \"value\": \"aaa\"}]")
 
         reader.iterateArray {
-            var type: String = ""
-            
-            val recordedReader = record(reader) {
+            var type = ""
+
+            val recordedReader = record {
                 iterateObject {
-                    when(it) {
+                    when (it) {
                         "type" -> type = readString()
                         else -> skipValue()
                     }
@@ -110,9 +191,9 @@ class DecodingTests : FunSpec({
             }
 
             recordedReader.iterateObject {
-                when(it) {
+                when (it) {
                     "value" -> {
-                        when(type) {
+                        when (type) {
                             "int" -> readNumber().toInt().shouldBe(1)
                             "string" -> readString().shouldBe("aaa")
                         }
@@ -123,16 +204,3 @@ class DecodingTests : FunSpec({
         }
     }
 })
-
-
-//
-//    val path = ".data.items".kodablePath()
-//    val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
-//    println(e)
-//
-//    println("case_abc-damn".toCamelCase())
-//    println("aSimpleValue".toSnakeCase())
-//
-//    println(Test::class.kodable().enkode(test))
-//
-//    println(DependencyTest::class.kodable().enkode(DependencyTest(Dependence(1))))
