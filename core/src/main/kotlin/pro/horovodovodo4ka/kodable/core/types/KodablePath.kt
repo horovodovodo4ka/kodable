@@ -1,45 +1,33 @@
 package pro.horovodovodo4ka.kodable.core.types
 
-import com.github.fluidsonic.fluid.json.JSONReader
-import com.github.fluidsonic.fluid.json.JSONToken.listEnd
-import com.github.fluidsonic.fluid.json.JSONToken.mapEnd
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.types.KodablePath.PathToken.ListElement
 import pro.horovodovodo4ka.kodable.core.types.KodablePath.PathToken.ObjectElement
 
 class KodablePath(path: String) {
 
     sealed class PathToken {
-        abstract fun process(reader: JSONReader): Boolean
+        abstract fun process(reader: JsonReader): Boolean
 
         class ObjectElement(val key: String) : PathToken() {
-            override fun process(reader: JSONReader): Boolean {
-                with(reader) {
-                    readMapStart()
-                    while (nextToken != mapEnd) {
-                        if (readMapKey() == key) return true
-                        skipValue()
+            override fun process(reader: JsonReader): Boolean {
+                return runCatching {
+                    reader.iterateObject {
+                        if (it == key) throw Exception("Token found, stop skipping")
                     }
-                    readMapEnd()
-                }
-                return false
+                }.isFailure
             }
 
             override fun toString(): String = ".$key"
         }
 
         class ListElement(val index: Int) : PathToken() {
-            override fun process(reader: JSONReader): Boolean {
-                with(reader) {
-                    readListStart()
-                    var counter = 0
-                    while (nextToken != listEnd) {
-                        if (index == counter) return true
-                        counter++
-                        skipValue()
+            override fun process(reader: JsonReader): Boolean {
+                return runCatching {
+                    reader.iterateArray {
+                        if (index == it) throw Exception()
                     }
-                    readListEnd()
-                }
-                return false
+                }.isFailure
             }
 
             override fun toString(): String = "[$index]"
@@ -57,7 +45,7 @@ class KodablePath(path: String) {
             }
     }
 
-    internal fun go(reader: JSONReader) {
+    internal fun go(reader: JsonReader) {
         stack.mapIndexed { idx, elm -> idx to elm }
             .firstOrNull { !it.second.process(reader) }
             ?.also {

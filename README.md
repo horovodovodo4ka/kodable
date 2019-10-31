@@ -24,8 +24,8 @@ Reflectionless simple json serialization/deserialization library for **kotlin-jv
 ## Installation
 Add this dependencies to your `build.grale(.kts)`:
 ```groovy
-kapt("com.github.horovodovodo4ka.kodable:processor:1.2.7")
-implementation("com.github.horovodovodo4ka.kodable:core:1.2.7")
+kapt("pro.horovodovodo4ka.kodable:processor:2.0.0")
+implementation("pro.horovodovodo4ka.kodable:core:2.0.0")
 ```
 
 If you use library with Android Studio and IDE doesn't allow you use generated code, try to add this:
@@ -144,7 +144,7 @@ class User {
     @Dekoder
     constructor(fullName: String?) {
         // splitting full name and assign name and givenName
-        ...
+        // ...
     }
 }
 ```
@@ -190,8 +190,8 @@ Example - we define that all dates are ISO8601 in json:
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
-    override fun readValue(reader: JSONReader): Date = formatter.parse(reader.readString())
-    override fun writeValue(writer: JSONWriter, instance: Date) = writer.writeString(formatter.format(instance))
+    override fun readValue(reader: JsonReader): Date = formatter.parse(reader.readString())
+    override fun writeValue(writer: JsonWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 ```
 **Important note: such kodables must be `object`s**
@@ -253,12 +253,48 @@ Samples of paths:
 "data" // root dot can be ommitted
 ```
 
+### Polymorphic cases
+Sometimes also needed to encode/decode model based on their types - they are all childs of base abstraction and should be encoded/decoded with it as anchor. 
+In JSON, typically, it looks like:
+```
+[ 
+    {
+        "i" : 10, 
+        "poly_type" : "p1"
+    },
+    {
+        "poly_type" : "p2",
+        "s" : "yay!"
+    }
+]
+```
+Here two objects which types marked with `poly_type` field. Here that types in kode:
+```kotlin
+interface Poly
+
+@Koder
+data class P1(val i: Int) : Poly
+
+@Koder
+data class P2(val s: String) : Poly
+```
+As you see - both has supertype `Poly`. So let's make `Poly` able to be decoded and/or encoded:
+```kotlin
+@DefaultKodableForType(Poly::class)
+object PolySerializer : IKodable<Poly> by poly({
+    propType("poly_type")
+    P1::class named "p1" with P1Kodable
+    P2::class named "p2" with P2Kodable
+})
+```
+With this DSL we defines that `Poly` can be represented with two types `P1` and `P2` tagged (via field `poly_type`) with "p1" and "p2" accordingly. Other fields in json are their's own.
 
 ## TODO
 - [x] add documentation for KodablePath - helper for skip to subelements
       without describing dummy models
 - [x] maps as collections additionally to `List`
-- [ ] polymorphysm for sealed/trivial classes
+- [ ] polymorphysm for sealed classes
+- [x] polymorphysm for trivial classes
 - [ ] more strong type cheking in compile time
 - [ ] simplify enkoders for trivial classes
 
