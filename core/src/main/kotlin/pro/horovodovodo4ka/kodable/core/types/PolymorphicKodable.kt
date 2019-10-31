@@ -6,8 +6,6 @@ import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.objectProperty
 import kotlin.reflect.KClass
 
-// TODO: document it!
-
 interface PolyKodableConfig<BaseType : Any> {
     fun propType(typeProperty: String)
 

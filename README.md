@@ -253,6 +253,41 @@ Samples of paths:
 "data" // root dot can be ommitted
 ```
 
+### Polymorphic cases
+Sometimes also needed to encode/decode model based on their types - they are all childs of base abstraction and should be encoded/decoded with it as anchor. 
+In JSON, typically, it looks like:
+```
+[ 
+    {
+        "i" : 10, 
+        "poly_type" : "p1"
+    },
+    {
+        "poly_type" : "p2",
+        "s" : "yay!"
+    }
+]
+```
+Here two objects which types marked with `poly_type` field. Here that types in kode:
+```kotlin
+interface Poly
+
+@Koder
+data class P1(val i: Int) : Poly
+
+@Koder
+data class P2(val s: String) : Poly
+```
+As you see - both has supertype `Poly`. So let's make `Poly` able to be decoded and/or encoded:
+```kotlin
+@DefaultKodableForType(Poly::class)
+object PolySerializer : IKodable<Poly> by poly({
+    propType("poly_type")
+    P1::class named "p1" with P1Kodable
+    P2::class named "p2" with P2Kodable
+})
+```
+With this DSL we defines that `Poly` can be represented with two types `P1` and `P2` tagged (via field `poly_type`) with "p1" and "p2" accordingly. Other fields in json are their's own.
 
 ## TODO
 - [x] add documentation for KodablePath - helper for skip to subelements

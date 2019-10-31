@@ -62,7 +62,18 @@ class SerializersTest : FunSpec({
     }
 
     test("polymorphic decoder") {
-        val str = "[ {\"i\":10, \"poly_type\":\"p1\"} , {\"poly_type\":\"p2\" ,\"s\":\"yay!\"}]"
+        val str = """
+[ 
+    {
+        "i" : 10, 
+        "poly_type" : "p1"
+    },
+    {
+        "poly_type" : "p2",
+        "s" : "yay!"
+    }
+]
+        """.trimIndent()
         val poly = PolySerializer.list.dekode(str)
         poly[0].shouldBeInstanceOf<P1>()
         poly[1].shouldBeInstanceOf<P2>()
