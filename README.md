@@ -24,8 +24,8 @@ Reflectionless simple json serialization/deserialization library for **kotlin-jv
 ## Installation
 Add this dependencies to your `build.grale(.kts)`:
 ```groovy
-kapt("com.github.horovodovodo4ka.kodable:processor:1.2.7")
-implementation("com.github.horovodovodo4ka.kodable:core:1.2.7")
+kapt("pro.horovodovodo4ka.kodable:processor:2.0.0")
+implementation("pro.horovodovodo4ka.kodable:core:2.0.0")
 ```
 
 If you use library with Android Studio and IDE doesn't allow you use generated code, try to add this:
@@ -144,7 +144,7 @@ class User {
     @Dekoder
     constructor(fullName: String?) {
         // splitting full name and assign name and givenName
-        ...
+        // ...
     }
 }
 ```
@@ -258,7 +258,8 @@ Samples of paths:
 - [x] add documentation for KodablePath - helper for skip to subelements
       without describing dummy models
 - [x] maps as collections additionally to `List`
-- [ ] polymorphysm for sealed/trivial classes
+- [ ] polymorphysm for sealed classes
+- [x] polymorphysm for trivial classes
 - [ ] more strong type cheking in compile time
 - [ ] simplify enkoders for trivial classes
 
