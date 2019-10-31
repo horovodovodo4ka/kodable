@@ -2,6 +2,9 @@ package pro.horovodovodo4ka.kodable.core
 
 import kotlin.reflect.KClass
 
+@DslMarker
+annotation class KodableDSL
+
 /**
  * If class annotated then first constructor in it used for **decoding** type from json.
  * If constructor annotated then it used for **decoding** type from json.

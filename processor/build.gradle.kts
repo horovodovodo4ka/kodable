@@ -12,9 +12,6 @@ dependencies {
     // kotlin metadata
     implementation(Config.Libs.metadata) { forceKotlin() }
 
-    // used in kodable and processor has links to it
-    implementation(Config.Libs.fluidJson) { forceKotlin() }
-
     // generate code
     implementation(Config.Libs.kotlinpoet) { forceKotlin() }
 

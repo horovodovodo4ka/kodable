@@ -1,9 +1,5 @@
 package pro.horovodovodo4ka.kodable.sample
 
-import E
-import com.github.fluidsonic.fluid.json.JSONReader
-import com.github.fluidsonic.fluid.json.JSONWriter
-import kodable
 import pro.horovodovodo4ka.kodable.core.Default
 import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
 import pro.horovodovodo4ka.kodable.core.Dekoder
@@ -11,34 +7,14 @@ import pro.horovodovodo4ka.kodable.core.Enkoder
 import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.KodableName
 import pro.horovodovodo4ka.kodable.core.Koder
-import pro.horovodovodo4ka.kodable.core.types.kodablePath
-import pro.horovodovodo4ka.kodable.core.utils.dekode
-import pro.horovodovodo4ka.kodable.core.utils.enkode
-import pro.horovodovodo4ka.kodable.core.utils.toCamelCase
-import pro.horovodovodo4ka.kodable.core.utils.toSnakeCase
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.types.poly
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Date
+import java.util.Locale
 
-fun main(args: Array<String>) {
-    val b = B1::class.kodable().dekode("""{"i": null, "a": "aaaa"}""")
-    println(b.i)
-
-
-    val test = Test::class.kodable().dekode(""" {"index": [[1, 2]], "map" : { "a" : 1, "b" : 2 }, "format": "ae!", "a" : { "aee" : 1 } } """)
-    println(test.a.iii)
-
-    val path = ".data.items".kodablePath()
-    val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
-    println(e)
-
-    println("case_abc-damn".toCamelCase())
-    println("aSimpleValue".toSnakeCase())
-
-    println(Test::class.kodable().enkode(test))
-
-    println(DependencyTest::class.kodable().enkode(DependencyTest(Dependence(1))))
-}
 //
 @Koder
 data class DependencyTest(val dependency: Dependence)
@@ -90,8 +66,22 @@ class B1(i: Int?, val a: String) : B(i ?: 10)
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {
     private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
-    override fun readValue(reader: JSONReader): Date = formatter.parse(reader.readString())
-    override fun writeValue(writer: JSONWriter, instance: Date) = writer.writeString(formatter.format(instance))
+    override fun readValue(reader: JsonReader): Date = formatter.parse(reader.readString())
+    override fun writeValue(writer: JsonWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 
+// polymorphic type
+interface Poly
 
+@Koder
+data class P1(val i: Int) : Poly
+
+@Koder
+data class P2(val s: String) : Poly
+
+@DefaultKodableForType(Poly::class)
+object PolySerializer : IKodable<Poly> by poly({
+    propType("poly_type")
+    P1::class named "p1" with P1Kodable
+    P2::class named "p2" with P2Kodable
+})

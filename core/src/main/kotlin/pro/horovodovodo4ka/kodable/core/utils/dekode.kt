@@ -1,23 +1,16 @@
 package pro.horovodovodo4ka.kodable.core.utils
 
-import com.github.fluidsonic.fluid.json.JSONReader
-import com.github.fluidsonic.fluid.json.JSONWriter
 import pro.horovodovodo4ka.kodable.core.IKodable
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.json.invoke
 import pro.horovodovodo4ka.kodable.core.types.KodablePath
 import pro.horovodovodo4ka.kodable.core.writeValueOrNull
-import java.io.StringWriter
 
-fun <T> IKodable<T>.dekode(string: String, path: KodablePath? = null): T = with(JSONReader.build(string)) {
-    use {
-        path?.go(it)
-        readValue(it)
-    }
+fun <T: Any> IKodable<T>.dekode(string: String, path: KodablePath? = null): T = with(JsonReader(string)) {
+    path?.go(this)
+    readValue(this)
 }
 
-fun <T> IKodable<T>.enkode(instance: T?): String = with(StringWriter()) {
-    use {
-        JSONWriter.build(it).use { writer -> writeValueOrNull(writer, instance) }
-    }
-    toString()
-}
+fun <T: Any> IKodable<T>.enkode(instance: T?): String = JsonWriter { writeValueOrNull(this, instance) }
 
