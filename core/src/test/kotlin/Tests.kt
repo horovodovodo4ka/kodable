@@ -1,22 +1,27 @@
 import io.kotlintest.matchers.collections.shouldBeOneOf
+import io.kotlintest.matchers.types.shouldBeInstanceOf
 import io.kotlintest.matchers.types.shouldBeNull
 import io.kotlintest.shouldBe
-import io.kotlintest.shouldNotBe
 import io.kotlintest.specs.FunSpec
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.arrayElement
+import pro.horovodovodo4ka.kodable.core.json.invoke
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
 import pro.horovodovodo4ka.kodable.core.json.objectProperty
-import pro.horovodovodo4ka.kodable.core.json.record
-import pro.horovodovodo4ka.kodable.core.types.PolymorphicKodable
 import pro.horovodovodo4ka.kodable.core.types.kodablePath
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
 import pro.horovodovodo4ka.kodable.sample.B1
 import pro.horovodovodo4ka.kodable.sample.Dependence
 import pro.horovodovodo4ka.kodable.sample.DependencyTest
+import pro.horovodovodo4ka.kodable.sample.DependencyTestKodable
+import pro.horovodovodo4ka.kodable.sample.P1
+import pro.horovodovodo4ka.kodable.sample.P2
+import pro.horovodovodo4ka.kodable.sample.Poly
+import pro.horovodovodo4ka.kodable.sample.PolySerializer
 import pro.horovodovodo4ka.kodable.sample.Test
+import pro.horovodovodo4ka.kodable.sample.TestKodable
 import pro.horovodovodo4ka.kodable.sample.kodable
 
 class SerializersTest : FunSpec({
@@ -41,17 +46,26 @@ class SerializersTest : FunSpec({
     }
 
     test("encoder: nesting encoding") {
-        val str = Test::class.kodable().enkode(test)
+        val str = TestKodable.enkode(test)
         str.shouldBe("{\"a\":{\"aee\":1},\"ints\":[[1,2]],\"format\":\"ae!\",\"for\":null}")
     }
 
     test("encoder: external kodable") {
-        val str = DependencyTest::class.kodable().enkode(DependencyTest(Dependence(1)))
+        val str = DependencyTestKodable.enkode(DependencyTest(Dependence(1)))
         str.shouldBe("{\"dependency\":{\"some\":1}}")
     }
 
-    test("polymorphic") {
+    test("polymorphic encode") {
+        val poly = listOf(P1(10), P2("yay!"))
+        val str = PolySerializer.list.enkode(poly)
+        str.shouldBe("[{\"poly_type\":\"p1\",\"i\":10},{\"poly_type\":\"p2\",\"s\":\"yay!\"}]")
+    }
 
+    test("polymorphic decoder") {
+        val str = "[ {\"i\":10, \"poly_type\":\"p1\"} , {\"poly_type\":\"p2\" ,\"s\":\"yay!\"}]"
+        val poly = PolySerializer.list.dekode(str)
+        poly[0].shouldBeInstanceOf<P1>()
+        poly[1].shouldBeInstanceOf<P2>()
     }
 })
 
@@ -185,17 +199,14 @@ class DecodingTests : FunSpec({
         reader.iterateArray {
             var type = ""
 
-            val recordedReader = record {
-                iterateObject {
-                    when (it) {
-                        "type" -> type = readString()
-                        else -> skipValue()
-                    }
+            val objectSnapshot = iterateObjectWithPrefetch {
+                when (it) {
+                    "type" -> type = readString()
+                    else -> skipValue()
                 }
-                type.shouldNotBe("")
             }
 
-            recordedReader.iterateObject {
+            objectSnapshot.iterateObject {
                 when (it) {
                     "value" -> {
                         when (type) {

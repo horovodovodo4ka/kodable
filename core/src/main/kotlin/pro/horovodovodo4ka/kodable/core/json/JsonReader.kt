@@ -9,17 +9,16 @@ interface JsonReader {
     fun readString(): String
     fun readNull(): Nothing?
 
-    fun iterateObject(block: JsonReader.(property: String) -> Unit)
-    fun iterateArray(block: JsonReader.(index: Int) -> Unit)
     fun skipValue()
 
-    fun nextType(): JsonEntity
-    fun snapshot(block: JsonReader.() -> Unit): String
+    fun iterateObjectWithPrefetch(prefetch: JsonReader.(property: String) -> Unit) : JsonReader
+    fun iterateObject(block: JsonReader.(property: String) -> Unit)
 
-    companion object {
-        operator fun invoke(input: Reader): JsonReader = DefaultJsonReader(input)
-        operator fun invoke(inputString: String): JsonReader = invoke(inputString.reader())
-    }
+    fun iterateArray(block: JsonReader.(index: Int) -> Unit)
+
+    fun nextType(): JsonEntity
+
+    companion object
 }
 
 fun JsonReader.isNextNull(): Boolean = nextType() == `null`

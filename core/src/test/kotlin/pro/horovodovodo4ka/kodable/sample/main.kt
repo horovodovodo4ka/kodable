@@ -72,7 +72,7 @@ object DateKodable : IKodable<Date> {
     override fun writeValue(writer: JsonWriter, instance: Date) = writer.writeString(formatter.format(instance))
 }
 
-
+// polymorphic type
 interface Poly
 
 @Koder
@@ -84,6 +84,6 @@ data class P2(val s: String) : Poly
 @DefaultKodableForType(Poly::class)
 object PolySerializer: IKodable<Poly> by PolymorphicKodable({
     propType("poly_type")
-    P1::class with P1Kodable
-    P2::class with P2Kodable
+    P1::class named "p1" with P1Kodable
+    P2::class named "p2" with P2Kodable
 })

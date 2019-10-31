@@ -4,64 +4,75 @@ import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.objectProperty
-import pro.horovodovodo4ka.kodable.core.json.record
 import kotlin.reflect.KClass
 
-typealias PolymorphicDescription<BaseType> = Pair<String, IKodable<BaseType>>
+private class PolymorphicDescription<BaseType : Any, ConcreteType : BaseType>(val type: String, val kclass: KClass<*>, val concreteKodable: IKodable<ConcreteType>) :
+    IKodable<BaseType> {
+    operator fun component1() = type
+    operator fun component2() = kclass
+    operator fun component3() = concreteKodable
 
-class PolymorphicKodable<BaseType: Any>(config: PolymorphicKodable<BaseType>.Config.() -> Unit) : IKodable<BaseType> {
+    override fun readValue(reader: JsonReader): BaseType {
+        return concreteKodable.readValue(reader)
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    override fun writeValue(writer: JsonWriter, instance: BaseType) {
+        concreteKodable.writeValue(writer, instance as ConcreteType)
+    }
+}
+
+class PolymorphicKodable<BaseType : Any>(config: PolymorphicKodable<BaseType>.Config.() -> Unit) : IKodable<BaseType> {
 
     private var typeProperty: String = "type"
-    private val polymorphicKoders = mutableMapOf<KClass<out BaseType>, IKodable<out BaseType>>()
+    private val polymorphicKoders = mutableListOf<PolymorphicDescription<BaseType, *>>()
+
+    init {
+        config(Config())
+    }
 
     inner class Config {
+
         fun propType(typeProperty: String) {
             this@PolymorphicKodable.typeProperty = typeProperty
         }
 
-        infix fun <T: BaseType> KClass<T>.with(koder: IKodable<T>) {
-            polymorphicKoders[this] = koder
+        infix fun <T : Any> KClass<T>.named(string: String) = string to this
+
+        infix fun <T : BaseType> Pair<String, KClass<T>>.with(kodable: IKodable<T>) {
+            val binding = PolymorphicDescription<BaseType, T>(
+                this.first,
+                this.second,
+                kodable
+            )
+
+            polymorphicKoders.add(binding)
         }
     }
 
     override fun readValue(reader: JsonReader): BaseType {
-        lateinit var polymorphicTag: String
+        var polymorphicTag = ""
 
-        val snapshot = reader.record {
-            iterateObject {
-                if (it == typeProperty) polymorphicTag = readString()
-                else skipValue()
-            }
+        val objectSnapshot = reader.iterateObjectWithPrefetch {
+            if (it == typeProperty) polymorphicTag = readString()
+            else skipValue()
         }
-//
-//        val koder = polymorphicKoders[polymorphicTag] ?: throw Exception("Unknown polymorphic case '$polymorphicTag' in ${this::class}")
-//
-//        return koder.readValue(snapshot)
-        TODO()
+
+        val decoder = polymorphicKoders.firstOrNull { it.type == polymorphicTag }
+            ?: throw Exception("Unknown polymorphic case '$polymorphicTag' in ${this::class}")
+
+        return decoder.readValue(objectSnapshot)
     }
 
     override fun writeValue(writer: JsonWriter, instance: BaseType) {
-//        val (polymorpicTag, kodable) = kodersByClass[instance::class] ?: throw Exception("Unknown polymorphic case '${instance::class}' in ${this::class}")
-//
-//        val props = sequenceOf(
-//            objectProperty(typeProperty) { writeString(polymorpicTag) },
-//            objectProperty(valueProperty) { kodable.writeValue(this, instance) }
-//        )
-//
-//        writer.iterateObject(props)
+        val encoder = polymorphicKoders.firstOrNull { it.kclass == instance::class }
+            ?: throw Exception("Unknown polymorphic case '${instance::class}' in ${this::class}")
+
+        val props = sequenceOf(
+            objectProperty(typeProperty) { writeString(encoder.type) }
+        )
+
+        writer.prependObject(props)
+        encoder.writeValue(writer, instance)
     }
 }
-
-//fun <BaseType: Any> KClass<BaseType>.polyKodable(typeProperty: String = "type",
-//                              valueProperty: String = "value",
-//                              firstPolymorphicKoder: PolymorphicDescription<BaseType>,
-//                              vararg polymorphicKoders: PolymorphicDescription<BaseType>) : IKodable<BaseType> {
-//    return PolymorphicKodable(this, typeProperty, valueProperty, (listOf(firstPolymorphicKoder) + polymorphicKoders).toMap())
-//}
-
-//inline fun <reified BaseType: Any> polymorphic(typeProperty: String = "type",
-//                                        valueProperty: String = "value",
-//                                        firstPolymorphicKoder: PolymorphicDescription<BaseType>,
-//                                        vararg polymorphicKoders: PolymorphicDescription<BaseType>) : IKodable<BaseType> {
-//    return PolymorphicKodable(BaseType::class, typeProperty, valueProperty, (listOf(firstPolymorphicKoder) + polymorphicKoders).toMap())
-//}

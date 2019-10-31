@@ -16,7 +16,35 @@ import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.NAME_SEPARATOR
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.VALUE_SEPARATOR
 import java.io.Reader
 
-internal class DefaultJsonReader(private val input: Reader) : JsonReader {
+operator fun JsonReader.Companion.invoke(input: Reader): JsonReader = DefaultJsonReader(input)
+operator fun JsonReader.Companion.invoke(inputString: String): JsonReader = invoke(inputString.reader())
+
+private class ReadDelegate {
+    private val buffer = StringBuilder()
+    override fun toString(): String = buffer.toString()
+
+    fun onRead(char: Char) {
+        buffer.append(char)
+    }
+}
+
+private interface JsonReaderWithCharReading : JsonReader {
+    val cursorPositionForPrint: Int
+
+    var readDelegate: ReadDelegate?
+
+    override fun iterateObjectWithPrefetch(prefetch: JsonReader.(property: String) -> Unit): JsonReader {
+        val shift = cursorPositionForPrint + 1
+        val proxy = ReadDelegate()
+        readDelegate = proxy
+        iterateObject(prefetch)
+        readDelegate = null
+        return DefaultJsonReader(proxy.toString().reader(), shift)
+    }
+}
+
+private class DefaultJsonReader(private val input: Reader, private val cursorShift: Int = 0) : JsonReaderWithCharReading {
+    override var readDelegate: ReadDelegate? = null
 
     companion object {
         const val chunkSize = 1024
@@ -35,26 +63,23 @@ internal class DefaultJsonReader(private val input: Reader) : JsonReader {
         readNext()
     }
 
+    override val cursorPositionForPrint
+        get() = cursor + cursorShift
+
     private fun readFromStream() {
         bufferLen = input.read(buffer, chunkCursor, chunkSize)
         chunkCursor += bufferLen
     }
 
-    private var snapshotBuffer: StringBuilder? = null
-    override fun snapshot(block: JsonReader.() -> Unit): String {
-        snapshotBuffer = StringBuilder()
-        block(this)
-        return snapshotBuffer.toString().also { snapshotBuffer = null }
-    }
-
-
     private fun readNextDirty(): Char? {
+        peek()?.also { readDelegate?.onRead(it) }
+
+        cursor++
+
         // means eof
         if (bufferLen == 0) {
             return this.currentChar
         }
-
-        cursor++
 
         if (bufferLen < 0 || relativeCursor > bufferLen) {
             readFromStream()
@@ -69,7 +94,6 @@ internal class DefaultJsonReader(private val input: Reader) : JsonReader {
     }
 
     private fun readNext(): Char? {
-        currentChar?.also { snapshotBuffer?.append(it) }
         readNextDirty()
         if (isOutside) skipWhitespaces()
         return peek()
@@ -84,7 +108,7 @@ internal class DefaultJsonReader(private val input: Reader) : JsonReader {
     }
 
     private fun readNextStrict(): Char {
-        return readNext() ?: throw Exception("Unexpected EOF @ $cursor")
+        return readNext() ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peek(): Char? {
@@ -92,13 +116,13 @@ internal class DefaultJsonReader(private val input: Reader) : JsonReader {
     }
 
     private fun peekStrict(): Char {
-        return peek() ?: throw Exception("Unexpected EOF @ $cursor")
+        return peek() ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peekExpecting(vararg expected: Char): Char {
         val next = peekStrict()
         if (next !in expected)
-            throw Exception("Unexpected character @ $cursor: '$next' is not one of: '${expected.joinToString("', '")}'")
+            throw Exception("Unexpected character @ $cursorPositionForPrint: '$next' is not one of: '${expected.joinToString("', '")}'")
         return next
     }
 
@@ -120,7 +144,7 @@ internal class DefaultJsonReader(private val input: Reader) : JsonReader {
 
     private fun validateValueEnd() {
         val nextToken = currentChar
-        if (nextToken != null && nextToken !in valueEndScope) throw Exception("Value end expected @ $cursor")
+        if (nextToken != null && nextToken !in valueEndScope) throw Exception("Value end expected @ $cursorPositionForPrint")
     }
 
     private fun <T> isolateValue(block: () -> T): T {
@@ -242,10 +266,10 @@ internal class DefaultJsonReader(private val input: Reader) : JsonReader {
 
                             result.append((char1 or char2 or char3 or char4).toChar())
                         }
-                        else -> throw Exception("Incorrect escape sequence @ $cursor")
+                        else -> throw Exception("Incorrect escape sequence @ $cursorPositionForPrint")
                     }
                 }
-                in controls -> throw Exception("Unsupported escape sequence @ $cursor")
+                in controls -> throw Exception("Unsupported escape sequence @ $cursorPositionForPrint")
                 else -> result.append(char)
             }
 
