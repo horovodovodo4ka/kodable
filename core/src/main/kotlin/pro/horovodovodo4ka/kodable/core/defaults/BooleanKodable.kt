@@ -1,8 +1,8 @@
 package pro.horovodovodo4ka.kodable.core.defaults
 
+import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
-import pro.horovodovodo4ka.kodable.core.IKodable
 import kotlin.reflect.KClass
 
 object BooleanKodable : IKodable<Boolean> {

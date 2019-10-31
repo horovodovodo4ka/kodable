@@ -18,7 +18,6 @@ import pro.horovodovodo4ka.kodable.sample.DependencyTest
 import pro.horovodovodo4ka.kodable.sample.DependencyTestKodable
 import pro.horovodovodo4ka.kodable.sample.P1
 import pro.horovodovodo4ka.kodable.sample.P2
-import pro.horovodovodo4ka.kodable.sample.Poly
 import pro.horovodovodo4ka.kodable.sample.PolySerializer
 import pro.horovodovodo4ka.kodable.sample.Test
 import pro.horovodovodo4ka.kodable.sample.TestKodable

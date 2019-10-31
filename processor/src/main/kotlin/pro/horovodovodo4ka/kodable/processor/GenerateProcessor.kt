@@ -1,11 +1,8 @@
 package pro.horovodovodo4ka.kodable.processor
 
-import pro.horovodovodo4ka.kodable.core.json.JsonReader
-import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import com.google.auto.service.AutoService
 import com.squareup.kotlinpoet.AnnotationSpec
 import com.squareup.kotlinpoet.ClassName
-import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
 import com.squareup.kotlinpoet.FunSpec
 import com.squareup.kotlinpoet.KModifier
@@ -13,7 +10,6 @@ import com.squareup.kotlinpoet.KModifier.OVERRIDE
 import com.squareup.kotlinpoet.KModifier.PUBLIC
 import com.squareup.kotlinpoet.ParameterizedTypeName
 import com.squareup.kotlinpoet.PropertySpec
-import com.squareup.kotlinpoet.TypeAliasSpec
 import com.squareup.kotlinpoet.TypeName
 import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.WildcardTypeName
@@ -62,6 +58,8 @@ import pro.horovodovodo4ka.kodable.core.defaults.LongKodable
 import pro.horovodovodo4ka.kodable.core.defaults.NumberKodable
 import pro.horovodovodo4ka.kodable.core.defaults.ShortKodable
 import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.DEKODER
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.ENKODER
 import pro.horovodovodo4ka.kodable.processor.GenerateProcessor.AnnotationKind.KODER
@@ -209,12 +207,17 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             proto.classKind == Kind.CLASS -> when {
                 proto.sealedSubclassFqNameCount > 0 -> throw Exception("Sealed classes are not supported: '$targetType'")
                 proto.isDataClass -> if (annotationKind == KODER) ProcessorDesc(DATACLASS_KODER, targetType, element) else null
-                proto.isInnerClass -> if (annotationKind == ENKODER) ProcessorDesc(OBJECT_ENKODER, getClass(element.enclosingElement)!!.asClassName(), typeEnkoder = element) else null
+                proto.isInnerClass -> if (annotationKind == ENKODER) ProcessorDesc(
+                    OBJECT_ENKODER,
+                    getClass(element.enclosingElement)!!.asClassName(),
+                    typeEnkoder = element
+                ) else null
                 annotationKind == DEKODER -> ProcessorDesc(OBJECT_DEKODER, targetType, typeDekoderOrKoder = element)
                 else -> null
             }
             else -> null
-        } ?: throw Exception("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
+        }
+            ?: throw Exception("\nCheck annotation for type '$element' - it must be one of:\n@Koder - enums and data classes\n@Enkoder - inner classes for decoding nesting classes\n@Dekoder - usual classes")
 
         when (annotationKind) {
             DEKODER -> prefetchedDekoders.add(targetType)
@@ -263,7 +266,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
         element.interfaces
             .mapNotNull { it.asTypeName() as? ParameterizedTypeName }
-            .firstOrNull { it.rawType == KODABLE_INTERFACE_TYPE && it.typeArguments.firstOrNull() == targetType } ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
+            .firstOrNull { it.rawType == KODABLE_INTERFACE_TYPE && it.typeArguments.firstOrNull() == targetType }
+            ?: throw Exception("Type $kodable does not implements IKodable<$targetType>")
 
         if (defaults[targetType] != null) throw Exception("Default Dekoder for '$element' already defined: ${defaults[targetType]}")
 
@@ -514,7 +518,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                     .returns(targetType)
                     .apply {
                         if (meta.defaultEntry != null)
-                            addStatement("return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }", targetType)
+                            addStatement(
+                                "return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }",
+                                targetType
+                            )
                         else
                             addStatement("return enumValueOf<%T>(reader.readString())", targetType)
                     }
@@ -553,7 +560,12 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
                 val dekoderParams = dekoderMeta.run {
                     val nameResolver = typeMeta.data.nameResolver
-                    constructorMeta.valueParameterList.mapIndexed { idx, parameter -> DekoderProperty(constructor.parameters[idx], nameResolver.getName(parameter.name).asString()) }
+                    constructorMeta.valueParameterList.mapIndexed { idx, parameter ->
+                        DekoderProperty(
+                            constructor.parameters[idx],
+                            nameResolver.getName(parameter.name).asString()
+                        )
+                    }
                 }
 
                 generateReader(targetType, dekoderParams)
