@@ -171,7 +171,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
                 readExpecting('e')
                 found = false
             }
-            else -> TODO()
+            else -> throw IllegalStateException()
         }
 
         readNext()

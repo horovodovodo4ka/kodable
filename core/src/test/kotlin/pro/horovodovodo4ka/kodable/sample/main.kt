@@ -1,7 +1,5 @@
 package pro.horovodovodo4ka.kodable.sample
 
-import pro.horovodovodo4ka.kodable.core.json.JsonReader
-import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.Default
 import pro.horovodovodo4ka.kodable.core.DefaultKodableForType
 import pro.horovodovodo4ka.kodable.core.Dekoder
@@ -9,7 +7,9 @@ import pro.horovodovodo4ka.kodable.core.Enkoder
 import pro.horovodovodo4ka.kodable.core.IKodable
 import pro.horovodovodo4ka.kodable.core.KodableName
 import pro.horovodovodo4ka.kodable.core.Koder
-import pro.horovodovodo4ka.kodable.core.types.PolymorphicKodable
+import pro.horovodovodo4ka.kodable.core.json.JsonReader
+import pro.horovodovodo4ka.kodable.core.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.types.poly
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -61,9 +61,7 @@ data class DTO(val i: Int)
 open class B(val i: Int)
 
 @Dekoder
-class B1(i: Int?, val a: String) : B(i ?: 10) {
-    companion object
-}
+class B1(i: Int?, val a: String) : B(i ?: 10)
 
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {
@@ -82,7 +80,7 @@ data class P1(val i: Int) : Poly
 data class P2(val s: String) : Poly
 
 @DefaultKodableForType(Poly::class)
-object PolySerializer: IKodable<Poly> by PolymorphicKodable({
+object PolySerializer : IKodable<Poly> by poly({
     propType("poly_type")
     P1::class named "p1" with P1Kodable
     P2::class named "p2" with P2Kodable

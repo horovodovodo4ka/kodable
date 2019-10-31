@@ -6,6 +6,20 @@ import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.objectProperty
 import kotlin.reflect.KClass
 
+// TODO: document it!
+
+interface PolyKodableConfig<BaseType : Any> {
+    fun propType(typeProperty: String)
+
+    infix fun <T : Any> KClass<T>.named(string: String): Pair<String, KClass<T>>
+
+    infix fun <T : BaseType> Pair<String, KClass<T>>.with(kodable: IKodable<T>)
+}
+
+fun <T : Any> poly(config: PolyKodableConfig<T>.() -> Unit): IKodable<T> = PolymorphicKodable(config)
+
+////
+
 private class PolymorphicDescription<BaseType : Any, ConcreteType : BaseType>(val type: String, val kclass: KClass<*>, val concreteKodable: IKodable<ConcreteType>) :
     IKodable<BaseType> {
     operator fun component1() = type
@@ -22,7 +36,7 @@ private class PolymorphicDescription<BaseType : Any, ConcreteType : BaseType>(va
     }
 }
 
-class PolymorphicKodable<BaseType : Any>(config: PolymorphicKodable<BaseType>.Config.() -> Unit) : IKodable<BaseType> {
+private class PolymorphicKodable<BaseType : Any>(config: PolyKodableConfig<BaseType>.() -> Unit) : IKodable<BaseType> {
 
     private var typeProperty: String = "type"
     private val polymorphicKoders = mutableListOf<PolymorphicDescription<BaseType, *>>()
@@ -31,15 +45,17 @@ class PolymorphicKodable<BaseType : Any>(config: PolymorphicKodable<BaseType>.Co
         config(Config())
     }
 
-    inner class Config {
+    inner class Config : PolyKodableConfig<BaseType> {
 
-        fun propType(typeProperty: String) {
+        override fun propType(typeProperty: String) {
             this@PolymorphicKodable.typeProperty = typeProperty
         }
 
-        infix fun <T : Any> KClass<T>.named(string: String) = string to this
+        override infix fun <T : Any> KClass<T>.named(string: String): Pair<String, KClass<T>> {
+            return string to this
+        }
 
-        infix fun <T : BaseType> Pair<String, KClass<T>>.with(kodable: IKodable<T>) {
+        override infix fun <T : BaseType> Pair<String, KClass<T>>.with(kodable: IKodable<T>) {
             val binding = PolymorphicDescription<BaseType, T>(
                 this.first,
                 this.second,
