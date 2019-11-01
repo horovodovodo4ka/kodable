@@ -3,12 +3,14 @@ import io.kotlintest.matchers.types.shouldBeInstanceOf
 import io.kotlintest.matchers.types.shouldBeNull
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.FunSpec
+import pro.horovodovodo4ka.kodable.core.Koder
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.arrayElement
 import pro.horovodovodo4ka.kodable.core.json.invoke
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
 import pro.horovodovodo4ka.kodable.core.json.objectProperty
+import pro.horovodovodo4ka.kodable.core.types.KodablePath
 import pro.horovodovodo4ka.kodable.core.types.kodablePath
 import pro.horovodovodo4ka.kodable.core.utils.dekode
 import pro.horovodovodo4ka.kodable.core.utils.enkode
@@ -229,5 +231,103 @@ class DecodingTests : FunSpec({
                 }
             }
         }
+    }
+})
+
+@Koder
+data class SocialProvider(val id: Int, val name: String)
+
+class HardBass : FunSpec({
+    test("with urls") {
+val json = """
+{
+    "meta": [],
+    "data": [
+        {
+            "id": 15,
+            "name": "Password",
+            "isActive": true,
+            "authData": []
+        },
+        {
+            "id": 16,
+            "name": "VK",
+            "isActive": true,
+            "oauthUrl": "http://oauth.vk.com/authorize?client_id=7154623&scope=email&response_type=code&redirect_uri=https%3A%2F%2Fweb-stage.dev.more.tv%2Foauth%2Fcallback%2Fvk&state=16",
+            "redirectUrl": "https://web-stage.dev.more.tv/oauth/callback/vk",
+            "authData": {
+                "scope": "email",
+                "client_id": "7154623",
+                "client_secret": "aMOEMJsOnurmMWQAs1MN"
+            }
+        },
+        {
+            "id": 17,
+            "name": "Facebook",
+            "isActive": true,
+            "oauthUrl": "https://www.facebook.com/dialog/oauth?client_id=696017504207217&scope=email&response_type=code&redirect_uri=https%3A%2F%2Fweb-stage.dev.more.tv%2Foauth%2Fcallback%2Ffacebook&state=17",
+            "redirectUrl": "https://web-stage.dev.more.tv/oauth/callback/facebook",
+            "authData": {
+                "scope": "email",
+                "client_id": "696017504207217",
+                "data_fields": "name,email",
+                "client_secret": "9faa9638691fcf4cd47de2107dd29182"
+            }
+        },
+        {
+            "id": 18,
+            "name": "OK",
+            "isActive": true,
+            "oauthUrl": "https://connect.ok.ru/oauth/authorize?client_id=512000052419&response_type=code&redirect_uri=https%3A%2F%2Fweb-stage.dev.more.tv%2Foauth%2Fcallback%2Fok&state=18&scope=GET_EMAIL",
+            "redirectUrl": "https://web-stage.dev.more.tv/oauth/callback/ok",
+            "authData": {
+                "scope": "GET_EMAIL",
+                "app_id": "512000052419",
+                "client_public": "CEMNMFJGDIHBABABA",
+                "client_secret": "B9574C02C4A752761DE76820"
+            }
+        },
+        {
+            "id": 19,
+            "name": "PIN",
+            "isActive": true,
+            "authData": []
+        },
+        {
+            "id": 20,
+            "name": "VK_Mobile",
+            "isActive": true,
+            "authData": []
+        },
+        {
+            "id": 21,
+            "name": "Facebook_Mobile",
+            "isActive": true,
+            "authData": []
+        },
+        {
+            "id": 22,
+            "name": "OK_Mobile",
+            "isActive": true,
+            "authData": []
+        },
+        {
+            "id": 23,
+            "name": "DeviceId",
+            "isActive": true,
+            "authData": []
+        },
+        {
+            "id": 24,
+            "name": "PIN",
+            "isActive": true,
+            "authData": []
+        }
+    ]
+}
+""".trimIndent()
+
+        val resp = SocialProviderKodable.list.dekode(json, KodablePath(".data"))
+        print(resp)
     }
 })

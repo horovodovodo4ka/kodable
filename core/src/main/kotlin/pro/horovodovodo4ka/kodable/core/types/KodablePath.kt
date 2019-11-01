@@ -14,6 +14,7 @@ class KodablePath(path: String) {
                 return runCatching {
                     reader.iterateObject {
                         if (it == key) throw Exception("Token found, stop skipping")
+                        skipValue()
                     }
                 }.isFailure
             }
@@ -26,6 +27,7 @@ class KodablePath(path: String) {
                 return runCatching {
                     reader.iterateArray {
                         if (index == it) throw Exception()
+                        skipValue()
                     }
                 }.isFailure
             }
