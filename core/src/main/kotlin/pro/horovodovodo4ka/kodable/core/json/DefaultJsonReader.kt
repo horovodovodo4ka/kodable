@@ -319,6 +319,8 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
         readObjectStart()
 
         while (true) {
+            if (peek() == END_OBJECT.char) break
+
             val key = readString()
 
             peekExpecting(NAME_SEPARATOR.char)
@@ -338,6 +340,8 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
         var index = 0
         while (true) {
+            if (peek() == END_ARRAY.char) break
+
             block(this, index)
 
             if (peek() != VALUE_SEPARATOR.char) break
