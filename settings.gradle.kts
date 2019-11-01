@@ -1,2 +1,1 @@
-if (System.getenv("JITPACK") != null) include (":core", ":processor")
-else include (":core", ":processor", ":sample_dependency")
+include (":core", ":processor", ":sample_dependency")
