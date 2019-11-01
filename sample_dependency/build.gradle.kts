@@ -4,9 +4,9 @@ plugins {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
+    testImplementation(kotlin("stdlib"))
 
-    implementation (project(":core"))
+    testImplementation (project(":core"))
 
-    kapt (project(":processor"))
+    kaptTest(project(":processor"))
 }
