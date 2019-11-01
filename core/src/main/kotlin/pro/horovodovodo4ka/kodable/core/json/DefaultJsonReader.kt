@@ -67,7 +67,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
         get() = cursor + cursorShift
 
     private fun readFromStream() {
-        bufferLen = input.read(buffer, chunkCursor, chunkSize)
+        bufferLen = input.read(buffer, 0, chunkSize)
         chunkCursor += bufferLen
     }
 
@@ -81,7 +81,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
             return this.currentChar
         }
 
-        if (bufferLen < 0 || relativeCursor > bufferLen) {
+        if (bufferLen < 0 || relativeCursor >= bufferLen) {
             readFromStream()
         }
 
@@ -108,7 +108,8 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
     }
 
     private fun readNextStrict(): Char {
-        return readNext() ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
+        return readNext()
+            ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peek(): Char? {
@@ -116,7 +117,8 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
     }
 
     private fun peekStrict(): Char {
-        return peek() ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
+        return peek()
+            ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peekExpecting(vararg expected: Char): Char {
@@ -317,6 +319,8 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
         readObjectStart()
 
         while (true) {
+            if (peek() == END_OBJECT.char) break
+
             val key = readString()
 
             peekExpecting(NAME_SEPARATOR.char)
@@ -336,6 +340,8 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
         var index = 0
         while (true) {
+            if (peek() == END_ARRAY.char) break
+
             block(this, index)
 
             if (peek() != VALUE_SEPARATOR.char) break
