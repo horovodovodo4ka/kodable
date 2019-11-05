@@ -268,7 +268,7 @@ In JSON, typically, it looks like:
     }
 ]
 ```
-Here two objects which types marked with `poly_type` field. Here that types in kode:
+Here two objects which types marked with `poly_type` field. Here that types in code:
 ```kotlin
 interface Poly
 
