@@ -4,6 +4,7 @@ import io.kotlintest.matchers.types.shouldBeNull
 import io.kotlintest.shouldBe
 import io.kotlintest.specs.FunSpec
 import pro.horovodovodo4ka.kodable.core.Koder
+import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.arrayElement
@@ -27,6 +28,13 @@ import pro.horovodovodo4ka.kodable.sample.kodable
 
 class SerializersTest : FunSpec({
     lateinit var test: Test
+
+    test("decoder: simple numbers") {
+        val b = DoubleKodable.list.dekode("""[0, 1.4]""")
+        b[0].shouldBe(0.0)
+        b[1].shouldBe(1.4)
+    }
+
     test("decoder: defaults while decoding") {
         val b: B1 = B1::class.kodable().dekode("""{"i": null, "a": "aaaa"}""")
         b.i.shouldBe(10)

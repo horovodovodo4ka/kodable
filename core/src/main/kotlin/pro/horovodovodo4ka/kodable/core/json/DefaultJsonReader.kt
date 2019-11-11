@@ -195,10 +195,10 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
         // int part
         when (peekExpecting(*digits)) {
-            // if leading zero then float point
+            // if leading zero then float point or end
             '0' -> {
                 result.append('0')
-                char = readExpecting('.', 'e', 'E')
+                readExpectingSoft('.', 'e', 'E') { char = it }
             }
             in '1'..'9' -> {
                 do {
