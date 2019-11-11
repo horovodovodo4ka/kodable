@@ -74,7 +74,7 @@ object DateKodable : IKodable<Date> {
 // polymorphic type
 interface Poly
 
-object UndefinedPoly: Poly
+object UndefinedPoly : Poly
 
 @Koder
 data class P1(val i: Int) : Poly

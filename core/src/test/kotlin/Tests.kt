@@ -251,7 +251,7 @@ data class SocialProvider(val id: Int, val name: String)
 
 class HardBass : FunSpec({
     test("with urls") {
-val json = """
+        val json = """
 {
     "meta": [],
     "data": [

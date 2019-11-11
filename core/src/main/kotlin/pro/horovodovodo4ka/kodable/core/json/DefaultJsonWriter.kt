@@ -13,7 +13,7 @@ operator fun JsonWriter.Companion.invoke(output: Writer): JsonWriter = DefaultJs
 operator fun JsonWriter.Companion.invoke(block: JsonWriter.() -> Unit): String = StringWriter()
     .run {
         use {
-            block(pro.horovodovodo4ka.kodable.core.json.JsonWriter(it))
+            block(JsonWriter(it))
         }
         toString()
     }
