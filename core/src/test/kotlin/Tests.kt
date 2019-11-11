@@ -24,6 +24,7 @@ import pro.horovodovodo4ka.kodable.sample.P2
 import pro.horovodovodo4ka.kodable.sample.PolySerializer
 import pro.horovodovodo4ka.kodable.sample.Test
 import pro.horovodovodo4ka.kodable.sample.TestKodable
+import pro.horovodovodo4ka.kodable.sample.UndefinedPoly
 import pro.horovodovodo4ka.kodable.sample.kodable
 
 class SerializersTest : FunSpec({
@@ -78,6 +79,9 @@ class SerializersTest : FunSpec({
         "poly_type" : "p1"
     },
     {
+        "poly_type": "Booooo"
+    },
+    {
         "poly_type" : "p2",
         "s" : "yay!"
     }
@@ -85,7 +89,8 @@ class SerializersTest : FunSpec({
         """.trimIndent()
         val poly = PolySerializer.list.dekode(str)
         poly[0].shouldBeInstanceOf<P1>()
-        poly[1].shouldBeInstanceOf<P2>()
+        poly[1].shouldBeInstanceOf<UndefinedPoly>()
+        poly[2].shouldBeInstanceOf<P2>()
     }
 })
 

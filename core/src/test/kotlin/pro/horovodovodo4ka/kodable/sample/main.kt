@@ -10,6 +10,7 @@ import pro.horovodovodo4ka.kodable.core.Koder
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.types.poly
+import pro.horovodovodo4ka.kodable.core.types.withFallback
 import pro.horovodovodo4ka.kodable.sample.anotherpackage.A
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -73,6 +74,8 @@ object DateKodable : IKodable<Date> {
 // polymorphic type
 interface Poly
 
+object UndefinedPoly: Poly
+
 @Koder
 data class P1(val i: Int) : Poly
 
@@ -84,4 +87,5 @@ object PolySerializer : IKodable<Poly> by poly({
     propType("poly_type")
     P1::class named "p1" with P1Kodable
     P2::class named "p2" with P2Kodable
+    withFallback(UndefinedPoly)
 })
