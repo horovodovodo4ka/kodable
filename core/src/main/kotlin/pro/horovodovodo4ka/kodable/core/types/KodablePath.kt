@@ -13,7 +13,7 @@ class KodablePath(path: String) {
             override fun process(reader: JsonReader): Boolean {
                 return runCatching {
                     reader.iterateObject {
-                        if (it == key) throw Exception("Token found, stop skipping")
+                        if (it == key) throw KodableException("Token found, stop skipping")
                         skipValue()
                     }
                 }.isFailure
@@ -26,7 +26,7 @@ class KodablePath(path: String) {
             override fun process(reader: JsonReader): Boolean {
                 return runCatching {
                     reader.iterateArray {
-                        if (index == it) throw Exception()
+                        if (index == it) throw KodableException()
                         skipValue()
                     }
                 }.isFailure
@@ -53,7 +53,7 @@ class KodablePath(path: String) {
             ?.also {
                 val (idx, _) = it
                 val path = stack.take(idx + 1).joinToString("")
-                throw Exception("KodablePath: '$path' <- this token not found")
+                throw KodableException("KodablePath: '$path' <- this token not found")
             }
     }
 

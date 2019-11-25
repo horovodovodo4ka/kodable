@@ -81,7 +81,7 @@ private class PolymorphicKodable<BaseType : Any>(config: PolyKodableConfig<BaseT
         val decoder =
             polymorphicKoders[polymorphicTag]
                 ?: default
-                ?: throw Exception("Unknown polymorphic case '$polymorphicTag' in ${this::class}")
+                ?: throw KodableException("Unknown polymorphic case '$polymorphicTag' in ${this::class}")
 
         return decoder.readValue(objectSnapshot)
     }
@@ -89,7 +89,7 @@ private class PolymorphicKodable<BaseType : Any>(config: PolyKodableConfig<BaseT
     override fun writeValue(writer: JsonWriter, instance: BaseType) {
         val (type, encoder) =
             polymorphicKoders.toList().firstOrNull { it.second.kclass == instance::class }
-                ?: throw Exception("Unknown polymorphic case '${instance::class}' in ${this::class}")
+                ?: throw KodableException("Unknown polymorphic case '${instance::class}' in ${this::class}")
 
         val props = sequenceOf(
             objectProperty(typeProperty) { writeString(type) }

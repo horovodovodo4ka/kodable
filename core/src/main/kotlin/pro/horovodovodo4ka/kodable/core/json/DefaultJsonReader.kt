@@ -109,7 +109,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
     private fun readNextStrict(): Char {
         return readNext()
-            ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
+            ?: throw KodableException("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peek(): Char? {
@@ -118,13 +118,13 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
     private fun peekStrict(): Char {
         return peek()
-            ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
+            ?: throw KodableException("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peekExpecting(vararg expected: Char): Char {
         val next = peekStrict()
         if (next !in expected)
-            throw Exception("Unexpected character @ $cursorPositionForPrint: '$next' is not one of: '${expected.joinToString("', '")}'")
+            throw KodableException("Unexpected character @ $cursorPositionForPrint: '$next' is not one of: '${expected.joinToString("', '")}'")
         return next
     }
 
@@ -146,7 +146,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
     private fun validateValueEnd() {
         val nextToken = currentChar
-        if (nextToken != null && nextToken !in valueEndScope) throw Exception("Value end expected @ $cursorPositionForPrint")
+        if (nextToken != null && nextToken !in valueEndScope) throw KodableException("Value end expected @ $cursorPositionForPrint")
     }
 
     private fun <T> isolateValue(block: () -> T): T {
@@ -173,7 +173,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
                 readExpecting('e')
                 found = false
             }
-            else -> throw IllegalStateException()
+            else -> throw IllegalStateKodableException()
         }
 
         readNext()
@@ -268,10 +268,10 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
                             result.append((char1 or char2 or char3 or char4).toChar())
                         }
-                        else -> throw Exception("Incorrect escape sequence @ $cursorPositionForPrint")
+                        else -> throw KodableException("Incorrect escape sequence @ $cursorPositionForPrint")
                     }
                 }
-                in controls -> throw Exception("Unsupported escape sequence @ $cursorPositionForPrint")
+                in controls -> throw KodableException("Unsupported escape sequence @ $cursorPositionForPrint")
                 else -> result.append(char)
             }
 
@@ -403,5 +403,5 @@ private fun Char.parseHexDigit() =
         in hexAlphanumericCapital ->
             this - hexAlphanumericCapital.first() + 10
 
-        else -> throw IllegalArgumentException("$this is not a hex digit.")
+        else -> throw IllegalArgumentKodableException("$this is not a hex digit.")
     }
