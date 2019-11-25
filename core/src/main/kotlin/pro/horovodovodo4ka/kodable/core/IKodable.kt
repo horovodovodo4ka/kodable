@@ -5,6 +5,7 @@ import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
 import pro.horovodovodo4ka.kodable.core.types.DictionaryKodable
+import pro.horovodovodo4ka.kodable.core.types.KodableException
 import pro.horovodovodo4ka.kodable.core.types.ListKodable
 
 interface IKodable<ValueType> {

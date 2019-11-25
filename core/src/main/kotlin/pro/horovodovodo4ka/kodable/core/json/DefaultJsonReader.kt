@@ -14,6 +14,7 @@ import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_ARRAY
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_OBJECT
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.NAME_SEPARATOR
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.VALUE_SEPARATOR
+import pro.horovodovodo4ka.kodable.core.types.KodableException
 import java.io.Reader
 
 operator fun JsonReader.Companion.invoke(input: Reader): JsonReader = DefaultJsonReader(input)
@@ -173,7 +174,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
                 readExpecting('e')
                 found = false
             }
-            else -> throw IllegalStateKodableException()
+            else -> throw IllegalStateException()
         }
 
         readNext()
@@ -403,5 +404,5 @@ private fun Char.parseHexDigit() =
         in hexAlphanumericCapital ->
             this - hexAlphanumericCapital.first() + 10
 
-        else -> throw IllegalArgumentKodableException("$this is not a hex digit.")
+        else -> throw IllegalArgumentException("$this is not a hex digit.")
     }
