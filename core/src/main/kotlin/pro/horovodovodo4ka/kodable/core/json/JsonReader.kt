@@ -1,7 +1,6 @@
 package pro.horovodovodo4ka.kodable.core.json
 
 import pro.horovodovodo4ka.kodable.core.json.JsonEntity.`null`
-import java.io.Reader
 
 interface JsonReader {
     fun readBoolean(): Boolean
@@ -11,7 +10,7 @@ interface JsonReader {
 
     fun skipValue()
 
-    fun iterateObjectWithPrefetch(prefetch: JsonReader.(property: String) -> Unit) : JsonReader
+    fun iterateObjectWithPrefetch(prefetch: JsonReader.(property: String) -> Unit): JsonReader
     fun iterateObject(block: JsonReader.(property: String) -> Unit)
 
     fun iterateArray(block: JsonReader.(index: Int) -> Unit)

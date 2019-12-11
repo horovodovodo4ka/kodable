@@ -13,7 +13,7 @@ operator fun JsonWriter.Companion.invoke(output: Writer): JsonWriter = DefaultJs
 operator fun JsonWriter.Companion.invoke(block: JsonWriter.() -> Unit): String = StringWriter()
     .run {
         use {
-            block(pro.horovodovodo4ka.kodable.core.json.JsonWriter(it))
+            block(JsonWriter(it))
         }
         toString()
     }
@@ -36,7 +36,7 @@ private class DefaultJsonWriter(private val output: Writer) : JsonWriter {
 
         output.append('"')
         for (char in value) {
-            when(char) {
+            when (char) {
                 '"', '\\' -> output.append('\\').append(char)
                 '\t' -> output.append('\\').append('t')
                 '\r' -> output.append('\\').append('r')

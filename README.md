@@ -24,8 +24,8 @@ Reflectionless simple json serialization/deserialization library for **kotlin-jv
 ## Installation
 Add this dependencies to your `build.grale(.kts)`:
 ```groovy
-kapt("pro.horovodovodo4ka.kodable:processor:2.0.0")
-implementation("pro.horovodovodo4ka.kodable:core:2.0.0")
+kapt("pro.horovodovodo4ka.kodable:processor:2.0.10")
+implementation("pro.horovodovodo4ka.kodable:core:2.0.10")
 ```
 
 If you use library with Android Studio and IDE doesn't allow you use generated code, try to add this:
@@ -268,7 +268,7 @@ In JSON, typically, it looks like:
     }
 ]
 ```
-Here two objects which types marked with `poly_type` field. Here that types in kode:
+Here two objects which types marked with `poly_type` field. Here that types in code:
 ```kotlin
 interface Poly
 
@@ -288,6 +288,27 @@ object PolySerializer : IKodable<Poly> by poly({
 })
 ```
 With this DSL we defines that `Poly` can be represented with two types `P1` and `P2` tagged (via field `poly_type`) with "p1" and "p2" accordingly. Other fields in json are their's own.
+
+If you expect that somewhen can be decoded not defined type you can use fallback:
+```kotlin
+interface Poly
+
+object UndefinedPoly: Poly
+
+@Koder
+data class P1(val i: Int) : Poly
+
+@Koder
+data class P2(val s: String) : Poly
+
+@DefaultKodableForType(Poly::class)
+object PolySerializer : IKodable<Poly> by poly({
+    propType("poly_type")
+    P1::class named "p1" with P1Kodable
+    P2::class named "p2" with P2Kodable
+    withFallback(UndefinedPoly) // default
+})
+```
 
 ## TODO
 - [x] add documentation for KodablePath - helper for skip to subelements

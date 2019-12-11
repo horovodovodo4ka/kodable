@@ -5,13 +5,14 @@ import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
 import pro.horovodovodo4ka.kodable.core.types.DictionaryKodable
+import pro.horovodovodo4ka.kodable.core.types.KodableException
 import pro.horovodovodo4ka.kodable.core.types.ListKodable
 
 interface IKodable<ValueType> {
 
-    fun readValue(reader: JsonReader): ValueType = throw Exception("IKodable: readValue() is not implemented in '$this'")
+    fun readValue(reader: JsonReader): ValueType = throw KodableException("IKodable: readValue() is not implemented in '$this'")
 
-    fun writeValue(writer: JsonWriter, instance: ValueType): Unit = throw Exception("IKodable: writeValue() is not implemented in '$this'")
+    fun writeValue(writer: JsonWriter, instance: ValueType): Unit = throw KodableException("IKodable: writeValue() is not implemented in '$this'")
 
     /**
      * Provides kodable for `List<ValueType>`

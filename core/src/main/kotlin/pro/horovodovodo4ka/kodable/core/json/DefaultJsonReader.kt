@@ -14,6 +14,7 @@ import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_ARRAY
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_OBJECT
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.NAME_SEPARATOR
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.VALUE_SEPARATOR
+import pro.horovodovodo4ka.kodable.core.types.KodableException
 import java.io.Reader
 
 operator fun JsonReader.Companion.invoke(input: Reader): JsonReader = DefaultJsonReader(input)
@@ -109,7 +110,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
     private fun readNextStrict(): Char {
         return readNext()
-            ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
+            ?: throw KodableException("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peek(): Char? {
@@ -118,13 +119,13 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
     private fun peekStrict(): Char {
         return peek()
-            ?: throw Exception("Unexpected EOF @ $cursorPositionForPrint")
+            ?: throw KodableException("Unexpected EOF @ $cursorPositionForPrint")
     }
 
     private fun peekExpecting(vararg expected: Char): Char {
         val next = peekStrict()
         if (next !in expected)
-            throw Exception("Unexpected character @ $cursorPositionForPrint: '$next' is not one of: '${expected.joinToString("', '")}'")
+            throw KodableException("Unexpected character @ $cursorPositionForPrint: '$next' is not one of: '${expected.joinToString("', '")}'")
         return next
     }
 
@@ -146,7 +147,7 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
     private fun validateValueEnd() {
         val nextToken = currentChar
-        if (nextToken != null && nextToken !in valueEndScope) throw Exception("Value end expected @ $cursorPositionForPrint")
+        if (nextToken != null && nextToken !in valueEndScope) throw KodableException("Value end expected @ $cursorPositionForPrint")
     }
 
     private fun <T> isolateValue(block: () -> T): T {
@@ -195,10 +196,10 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
         // int part
         when (peekExpecting(*digits)) {
-            // if leading zero then float point
+            // if leading zero then float point or end
             '0' -> {
                 result.append('0')
-                char = readExpecting('.', 'e', 'E')
+                readExpectingSoft('.', 'e', 'E') { char = it }
             }
             in '1'..'9' -> {
                 do {
@@ -268,10 +269,10 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
 
                             result.append((char1 or char2 or char3 or char4).toChar())
                         }
-                        else -> throw Exception("Incorrect escape sequence @ $cursorPositionForPrint")
+                        else -> throw KodableException("Incorrect escape sequence @ $cursorPositionForPrint")
                     }
                 }
-                in controls -> throw Exception("Unsupported escape sequence @ $cursorPositionForPrint")
+                in controls -> throw KodableException("Unsupported escape sequence @ $cursorPositionForPrint")
                 else -> result.append(char)
             }
 
