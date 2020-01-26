@@ -1,6 +1,6 @@
 ![image](./kodable.jpg)
 
-[![](https://jitpack.io/v/horovodovodo4ka/kodable.svg)](https://jitpack.io/#horovodovodo4ka/kodable)
+[![](https://jitpack.io/v/pro.horovodovodo4ka/kodable.svg)](https://jitpack.io/#pro.horovodovodo4ka/kodable)
 
 Reflectionless simple json serialization/deserialization library for **kotlin-jvm**
 
