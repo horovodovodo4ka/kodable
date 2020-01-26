@@ -66,9 +66,9 @@ class B1(i: Int?, val a: String) : B(i ?: 10)
 
 @DefaultKodableForType(Date::class)
 object DateKodable : IKodable<Date> {
-    private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ", Locale.ENGLISH)
-    override fun readValue(reader: JsonReader): Date = formatter.parse(reader.readString())
-    override fun writeValue(writer: JsonWriter, instance: Date) = writer.writeString(formatter.format(instance))
+    private val formatter = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssX", Locale.ENGLISH)
+    override fun readValue(reader: JsonReader): Date = synchronized(formatter) { formatter.parse(reader.readString()) }
+    override fun writeValue(writer: JsonWriter, instance: Date) = synchronized(formatter) { writer.writeString(formatter.format(instance)) }
 }
 
 // polymorphic type
