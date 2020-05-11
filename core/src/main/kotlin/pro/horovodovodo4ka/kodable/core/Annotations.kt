@@ -39,7 +39,7 @@ annotation class KodableName(val name: String)
 /**
  * Specifies custom Dekoder for parameter
  */
-@Target(AnnotationTarget.VALUE_PARAMETER)
+@Target(AnnotationTarget.VALUE_PARAMETER, AnnotationTarget.PROPERTY_GETTER)
 @Retention(AnnotationRetention.SOURCE)
 annotation class CustomKodable(val kodable: KClass<out IKodable<*>>)
 
