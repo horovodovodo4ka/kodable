@@ -1,4 +1,3 @@
-import arrow.core.success
 import io.kotlintest.matchers.collections.shouldBeOneOf
 import io.kotlintest.matchers.types.shouldBeInstanceOf
 import io.kotlintest.matchers.types.shouldBeNull
@@ -11,6 +10,7 @@ import pro.horovodovodo4ka.kodable.core.Dekoder
 import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
+import pro.horovodovodo4ka.kodable.core.json.JsonWriterOption.SkipObjectNullProperties
 import pro.horovodovodo4ka.kodable.core.json.arrayElement
 import pro.horovodovodo4ka.kodable.core.json.invoke
 import pro.horovodovodo4ka.kodable.core.json.isNextNull
@@ -106,6 +106,11 @@ class SerializersTest : FunSpec({
         str.shouldBe("""{"a":{"aee":1},"ints":[[1,2]],"format":"ae!","for":null}""")
     }
 
+    test("encoder: nesting encoding, skips nulls") {
+        val str = TestKodable.enkode(test, SkipObjectNullProperties)
+        str.shouldBe("""{"a":{"aee":1},"ints":[[1,2]],"format":"ae!"}""")
+    }
+
     test("encoder: external kodable") {
         val str = DependencyTestKodable.enkode(DependencyTest(Dependence(1)))
         str.shouldBe("""{"dependency":{"some":1}}""")
@@ -176,8 +181,8 @@ class EncodingTests : FunSpec({
 
     test("object") {
         val props = sequenceOf(
-            objectProperty("a") { writeNumber(1) },
-            objectProperty("b") { writeString("yay!") }
+            objectProperty("a", 1) { writeNumber(1) },
+            objectProperty("b", "yay!") { writeString("yay!") }
         )
         val ret = JsonWriter {
             iterateObject(props)

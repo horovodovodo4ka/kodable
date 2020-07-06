@@ -92,7 +92,7 @@ private class PolymorphicKodable<BaseType : Any>(config: PolyKodableConfig<BaseT
                 ?: throw KodableException("Unknown polymorphic case '${instance::class}' in ${this::class}")
 
         val props = sequenceOf(
-            objectProperty(typeProperty) { writeString(type) }
+            objectProperty(typeProperty, type) { writeString(type) }
         )
 
         writer.prependObject(props)

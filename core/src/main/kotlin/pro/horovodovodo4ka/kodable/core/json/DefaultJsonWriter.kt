@@ -1,5 +1,7 @@
 package pro.horovodovodo4ka.kodable.core.json
 
+import pro.horovodovodo4ka.kodable.core.json.JsonWriterOption.CustomPredicate
+import pro.horovodovodo4ka.kodable.core.json.JsonWriterOption.SkipObjectNullProperties
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.BEGIN_ARRAY
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.BEGIN_OBJECT
 import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.END_ARRAY
@@ -9,16 +11,17 @@ import pro.horovodovodo4ka.kodable.core.json.StructureCharacter.VALUE_SEPARATOR
 import java.io.StringWriter
 import java.io.Writer
 
-operator fun JsonWriter.Companion.invoke(output: Writer): JsonWriter = DefaultJsonWriter(output)
-operator fun JsonWriter.Companion.invoke(block: JsonWriter.() -> Unit): String = StringWriter()
+operator fun JsonWriter.Companion.invoke(output: Writer, options: List<JsonWriterOption> = emptyList()): JsonWriter = DefaultJsonWriter(output, options)
+operator fun JsonWriter.Companion.invoke(options: List<JsonWriterOption> = emptyList(), block: JsonWriter.() -> Unit): String = StringWriter()
     .run {
         use {
-            block(JsonWriter(it))
+            block(JsonWriter(it, options))
         }
         toString()
     }
 
-private class DefaultJsonWriter(private val output: Writer) : JsonWriter {
+private class DefaultJsonWriter(private val output: Writer, override val options: List<JsonWriterOption>) : JsonWriter {
+
     override fun writeBoolean(value: Boolean) {
         prependCache = null
 
@@ -71,15 +74,21 @@ private class DefaultJsonWriter(private val output: Writer) : JsonWriter {
         output.append("null")
     }
 
-    private var prependCache: Sequence<Pair<String, JsonWriter.() -> Unit>>? = null
-    override fun prependObject(properties: Sequence<Pair<String, JsonWriter.() -> Unit>>) {
-        prependCache = (prependCache ?: emptySequence()) + properties
+    private var prependCache: Sequence<ObjectPropertyWithPredicate>? = null
+    override fun prependObject(propertiesWithPredicates: Sequence<ObjectPropertyWithPredicate>) {
+        prependCache = (prependCache ?: emptySequence()) + propertiesWithPredicates
     }
 
-    override fun iterateObject(properties: Sequence<Pair<String, JsonWriter.() -> Unit>>) {
+    override fun iterateObject(propertiesWithPredicates: Sequence<ObjectPropertyWithPredicate>) {
         output.append(BEGIN_OBJECT.char)
 
-        val iterator = ((prependCache ?: emptySequence()) + properties).iterator()
+        val allProps = ((prependCache ?: emptySequence()) + propertiesWithPredicates).toMutableList()
+
+        options.filterIsInstance<CustomPredicate>().forEach { option ->
+            allProps.removeIf { !option.predicate(it.second) }
+        }
+
+        val iterator = allProps.iterator()
 
         while (iterator.hasNext()) {
             val item = iterator.next()
@@ -88,7 +97,7 @@ private class DefaultJsonWriter(private val output: Writer) : JsonWriter {
 
             output.append(NAME_SEPARATOR.char)
 
-            item.second(this)
+            item.third(this)
 
             if (iterator.hasNext()) output.append(VALUE_SEPARATOR.char)
         }

@@ -698,7 +698,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 enkoderParams.forEachIndexed { index, prop ->
                     val propertyStatement = if (prop.nullable) "writeValueOrNull" else "writeValue"
                     val separator = if (index < enkoderParams.lastIndex) "," else ""
-                    addStatement("\tobjectProperty(\"${prop.jsonName}\") { %T${prop.typeNesting}.$propertyStatement(this, %N) }$separator", prop.koderType, prop.name)
+                    addStatement("\tobjectProperty(\"${prop.jsonName}\", %N) { %T${prop.typeNesting}.$propertyStatement(this, %N) }$separator", prop.name, prop.koderType, prop.name)
                 }
                 addStatement(""")""")
                 addStatement("writer.iterateObject(properties)")

@@ -22,7 +22,7 @@ internal class DictionaryKodable<ValueType>(private val valueKodable: IKodable<V
         val elements = instance
             .asSequence()
             .map {
-                objectProperty(it.key) { valueKodable.writeValue(this, it.value) }
+                objectProperty(it.key, it.value) { valueKodable.writeValue(this, it.value) }
             }
 
         writer.iterateObject(elements)
