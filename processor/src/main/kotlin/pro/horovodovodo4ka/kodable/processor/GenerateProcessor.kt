@@ -593,15 +593,15 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     }
 
     private fun printMessage(message: String) {
-        messager.printMessage(Diagnostic.Kind.MANDATORY_WARNING, message)
+        messager.printMessage(Diagnostic.Kind.MANDATORY_WARNING, "$message\n")
     }
 
     private fun printError(message: String) {
-        messager.printMessage(Diagnostic.Kind.ERROR, message)
+        messager.printMessage(Diagnostic.Kind.ERROR, "$message\n")
     }
 
     private fun printError(message: String, element: Element) {
-        messager.printMessage(Diagnostic.Kind.ERROR, message, element)
+        messager.printMessage(Diagnostic.Kind.ERROR, "$message\n", element)
     }
 
     //region Utils
