@@ -85,7 +85,7 @@ private class DefaultJsonWriter(private val output: Writer, override val options
         val allProps = ((prependCache ?: emptySequence()) + propertiesWithPredicates).toMutableList()
 
         options.filterIsInstance<CustomPredicate>().forEach { option ->
-            allProps.removeIf { !option.predicate(it.second) }
+            allProps.removeAll { !option.predicate(it.second) }
         }
 
         val iterator = allProps.iterator()
