@@ -692,13 +692,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
             .addParameter("writer", WRITER_TYPE)
             .addParameter("instance", targetType)
             .apply {
-                val contextWrapper = context?.let { "{ ${context.type.asClassName().simpleName()}() }.apply" } ?: ""
+                val contextWrapper = context?.let { "{ ${context.type.asClassName().simpleName()}() }.apply value@" } ?: "value@"
                 beginControlFlow("with(instance) $contextWrapper")
                 addStatement("""val properties = sequenceOf(""")
                 enkoderParams.forEachIndexed { index, prop ->
                     val propertyStatement = if (prop.nullable) "writeValueOrNull" else "writeValue"
                     val separator = if (index < enkoderParams.lastIndex) "," else ""
-                    addStatement("\tobjectProperty(\"${prop.jsonName}\", %N) { %T${prop.typeNesting}.$propertyStatement(this, %N) }$separator", prop.name, prop.koderType, prop.name)
+                    addStatement("\tobjectProperty(\"${prop.jsonName}\", this@value.%N) { %T${prop.typeNesting}.$propertyStatement(this, this@value.%N) }$separator", prop.name, prop.koderType, prop.name)
                 }
                 addStatement(""")""")
                 addStatement("writer.iterateObject(properties)")
