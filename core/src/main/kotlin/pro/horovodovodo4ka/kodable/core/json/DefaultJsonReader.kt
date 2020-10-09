@@ -354,15 +354,18 @@ private class DefaultJsonReader(private val input: Reader, private val cursorShi
         readArrayEnd()
     }
 
-    override fun nextType(): JsonEntity = when (peek()) {
-        null -> eof
-        'n' -> `null`
-        'f', 't' -> boolean
-        '\"' -> string
-        in digits, '-' -> number
-        BEGIN_ARRAY.char -> array
-        BEGIN_OBJECT.char -> `object`
-        else -> undefined
+    override fun nextType(): JsonEntity {
+        val currentChar = peek()
+        return when (currentChar) {
+            null -> eof
+            'n' -> `null`
+            'f', 't' -> boolean
+            '\"' -> string
+            in digits, '-' -> number
+            BEGIN_ARRAY.char -> array
+            BEGIN_OBJECT.char -> `object`
+            else -> undefined
+        }
     }
 
     override fun skipValue() {

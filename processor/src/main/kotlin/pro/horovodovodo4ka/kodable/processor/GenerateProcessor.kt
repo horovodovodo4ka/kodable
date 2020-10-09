@@ -15,16 +15,9 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.WildcardTypeName
 import com.squareup.kotlinpoet.asClassName
 import com.squareup.kotlinpoet.asTypeName
-import me.eugeniomarletti.kotlin.metadata.KotlinClassMetadata
-import me.eugeniomarletti.kotlin.metadata.KotlinMetadataUtils
-import me.eugeniomarletti.kotlin.metadata.classKind
-import me.eugeniomarletti.kotlin.metadata.getterVisibility
-import me.eugeniomarletti.kotlin.metadata.hasGetter
-import me.eugeniomarletti.kotlin.metadata.isDataClass
-import me.eugeniomarletti.kotlin.metadata.isInnerClass
+import me.eugeniomarletti.kotlin.metadata.*
 import me.eugeniomarletti.kotlin.metadata.jvm.getJvmConstructorSignature
-import me.eugeniomarletti.kotlin.metadata.kaptGeneratedOption
-import me.eugeniomarletti.kotlin.metadata.kotlinMetadata
+import me.eugeniomarletti.kotlin.metadata.shadow.load.kotlin.header.KotlinClassHeader
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Class.Kind.COMPANION_OBJECT
@@ -37,8 +30,8 @@ import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Visibility.PR
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Visibility.PRIVATE_TO_THIS
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.ProtoBuf.Visibility.PROTECTED
 import me.eugeniomarletti.kotlin.metadata.shadow.metadata.deserialization.NameResolver
+import me.eugeniomarletti.kotlin.metadata.shadow.metadata.jvm.deserialization.JvmProtoBufUtil
 import me.eugeniomarletti.kotlin.metadata.shadow.serialization.deserialization.getName
-import me.eugeniomarletti.kotlin.metadata.visibility
 import me.eugeniomarletti.kotlin.processing.KotlinAbstractProcessor
 import org.jetbrains.annotations.Nullable
 import pro.horovodovodo4ka.kodable.core.CustomKodable
@@ -183,7 +176,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 forEach { e ->
                     when {
                         e is pro.horovodovodo4ka.kodable.processor.Exception && e.element != null -> printError(e.localizedMessage, e.element)
-                        else -> printError(e.localizedMessage)
+                        else -> printError(e.localizedMessage ?: e.cause?.localizedMessage ?: e.toString())
                     }
                 }
             }
@@ -199,7 +192,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private fun prefetchTypes(element: Element, annotationKind: AnnotationKind) {
         val clz = getClass(element) ?: throw Exception("@Dekoder, @Enkoder, @Koder annotations must be used with classes and constructors only")
         val meta = clz.kotlinMetadata as? KotlinClassMetadata ?: return
-        val proto = meta.data.classProto
+        val proto = meta.proto
 
         val targetType = fixType(clz.asClassName())
         val processsor: ProcessorDesc = when {
@@ -255,13 +248,11 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private fun registerDefaultKodable(element: Element) {
         if (element !is TypeElement) return
 
-        element.qualifiedName
-
         val kodable = element.asClassName()
         val targetType = element.defaultKoder() ?: return
         val typeMeta: KotlinClassMetadata = element.kotlinMetadata as? KotlinClassMetadata ?: return
 
-        if (typeMeta.data.classProto.classKind != OBJECT && typeMeta.data.classProto.classKind != COMPANION_OBJECT)
+        if (typeMeta.proto.classKind != OBJECT && typeMeta.proto.classKind != COMPANION_OBJECT)
             throw Exception("Default kodable '$kodable' for type '$targetType' MUST be an object")
 
         element.interfaces
@@ -441,8 +432,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     private fun ExecutableElement.asConstructorOrNull(meta: KotlinClassMetadata): ProtoBuf.Constructor? {
         val sig1 = jvmMethodSignature
-        return meta.data.classProto.constructorList.firstOrNull {
-            val sig2 = it.getJvmConstructorSignature(meta.data.nameResolver, meta.data.classProto.typeTable)?.replace("$", "/")
+        return meta.proto.constructorList.firstOrNull {
+            val sig2 = it.getJvmConstructorSignature(meta.safeData.nameResolver, meta.proto.typeTable)?.replace("$", "/")
             sig2 == sig1
         }
     }
@@ -453,10 +444,10 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     private fun getEnumClassAndDefault(element: Element): EnumMeta? {
         val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return null
-        val proto = meta.data.classProto
+        val proto = meta.proto
         if (proto.classKind != ENUM_CLASS) return null
 
-        val nameResolver = meta.data.nameResolver
+        val nameResolver = meta.safeData.nameResolver
 
         val clz = element as TypeElement
         val default = clz.enclosedElements
@@ -471,7 +462,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     private fun generateDataClassKoder(targetType: ClassName, element: Element): Boolean {
         val meta = getDataClassAndProperties(element) ?: return false
-        val nameResolver = meta.typeMeta.data.nameResolver
+        val nameResolver = meta.typeMeta.safeData.nameResolver
 
         val targetKodableType = targetType.kodableName()
         TypeSpec
@@ -501,7 +492,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     private fun generateEnumKoder(targetType: ClassName, element: Element): Boolean {
         val meta = getEnumClassAndDefault(element) ?: return false
-        val nameResolver = meta.typeMeta.data.nameResolver
+        val nameResolver = meta.typeMeta.safeData.nameResolver
 
         val targetKodableType = targetType.kodableName()
 
@@ -559,7 +550,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 dekoderMeta ?: return@apply
 
                 val dekoderParams = dekoderMeta.run {
-                    val nameResolver = typeMeta.data.nameResolver
+                    val nameResolver = typeMeta.safeData.nameResolver
                     constructorMeta.valueParameterList.mapIndexed { idx, parameter ->
                         DekoderProperty(
                             constructor.parameters[idx],
@@ -574,7 +565,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 enkoderMeta ?: return@apply
 
                 val enkoderParams = enkoderMeta.run {
-                    val nameResolver = typeMeta.data.nameResolver
+                    val nameResolver = typeMeta.safeData.nameResolver
                     propertiesMeta.mapIndexed { idx, parameter -> EnkoderProperty(properties[idx], nameResolver.getName(parameter.name).asString()) }
                 }
 
@@ -711,8 +702,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 }
 
 private fun KotlinClassMetadata.getResolverAndMeta(): Pair<NameResolver, List<ProtoBuf.Property>> {
-    val nameResolver = data.nameResolver
-    val propertiesMeta = data.classProto.propertyList
+    val nameResolver = safeData.nameResolver
+    val propertiesMeta = proto.propertyList
         .filter { it.hasGetter && (it.getterVisibility == Visibility.PUBLIC || it.getterVisibility == Visibility.INTERNAL) }
     return nameResolver to propertiesMeta
 }
@@ -727,3 +718,17 @@ private fun Element.customKoder() = annotationValue<DeclaredType>(CustomKodable:
 
 inline fun <reified T> Element.annotationValue(annotation: KClass<out Annotation>, paramIndex: Int = 0): T? =
     annotationMirrors.firstOrNull { it.annotationType.asTypeName() == annotation.asTypeName() }?.elementValues?.values?.toList()?.getOrNull(paramIndex)?.value as? T
+
+
+// compatibility hack
+
+private val KotlinClassMetadata.proto
+    get() = safeData.classProto
+
+private val KotlinClassMetadata.safeData
+    get() = header(header)
+
+private fun header(header: KotlinClassHeader) : ClassData {
+    return JvmProtoBufUtil.readClassDataFrom(header.data ?: header.incompatibleData!!, header.strings!!)
+        .let { (nameResolver, proto) -> ClassData(nameResolver, proto) }
+}

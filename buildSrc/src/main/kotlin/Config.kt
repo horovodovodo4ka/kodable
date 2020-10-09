@@ -2,7 +2,7 @@ import org.gradle.api.artifacts.ExternalModuleDependency
 import org.gradle.api.artifacts.ModuleDependency
 
 object Config {
-    const val kotlinVersion = "1.3.72"
+    const val kotlinVersion = "1.4.10"
 
     object Libs {
         const val kotlinpoet = "com.squareup:kotlinpoet:0.7.0"
