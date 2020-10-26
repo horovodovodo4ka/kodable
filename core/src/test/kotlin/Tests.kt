@@ -8,6 +8,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import pro.horovodovodo4ka.kodable.core.Dekoder
 import pro.horovodovodo4ka.kodable.core.defaults.DoubleKodable
+import pro.horovodovodo4ka.kodable.core.defaults.StringKodable
 import pro.horovodovodo4ka.kodable.core.json.JsonReader
 import pro.horovodovodo4ka.kodable.core.json.JsonWriter
 import pro.horovodovodo4ka.kodable.core.json.JsonWriterOption.SkipObjectNullProperties
@@ -199,6 +200,12 @@ class EncodingTests : FunSpec({
             iterateArray(elements)
         }
         ret.shouldBe("""[1,"yay!"]""")
+    }
+
+    test("dictionary") {
+        val ret = StringKodable.dictionary.enkode(mapOf("camping_id" to "321", "distribution_id" to "123", "target_user_id" to "2", "Deeplink" to "more://subscription/discount"))
+
+        ret.shouldBe("""{"camping_id":"321","distribution_id":"123","target_user_id":"2","Deeplink":"more://subscription/discount"}""")
     }
 })
 
