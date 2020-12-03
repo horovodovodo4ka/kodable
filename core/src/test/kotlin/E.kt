@@ -2,10 +2,11 @@ import pro.horovodovodo4ka.kodable.core.Default
 import pro.horovodovodo4ka.kodable.core.Koder
 
 @Koder
-enum class E {
+enum class E(val jsonCase: String) {
     @Default
-    unknown,
-    a,
-    b;
+    unknown("unknown"),
+    a("a"),
+    b("b"),
+    logo("MainLogo");
 
 }

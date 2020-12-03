@@ -151,6 +151,8 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
         DATACLASS_KODER
     }
 
+    private val enumJsonCasesKey = "jsonCase"
+
     private val processingErrors = mutableListOf<kotlin.Exception>()
     private fun wrapThrowingCode(block: () -> Unit) {
         try {
@@ -440,7 +442,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
 
     // enums
 
-    class EnumMeta(val type: TypeElement, val typeMeta: KotlinClassMetadata, val entries: List<ProtoBuf.EnumEntry>, val defaultEntry: ProtoBuf.EnumEntry?)
+    class EnumMeta(val type: TypeElement, val typeMeta: KotlinClassMetadata, val entries: List<ProtoBuf.EnumEntry>, val defaultEntry: ProtoBuf.EnumEntry?, val useCustomCases: Boolean)
 
     private fun getEnumClassAndDefault(element: Element): EnumMeta? {
         val meta = element.kotlinMetadata as? KotlinClassMetadata ?: return null
@@ -457,7 +459,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                     ?: throw Exception("Annotation @Default must be used only with enum value, not enum property")
             }
 
-        return EnumMeta(element, meta, proto.enumEntryList, default)
+        val useCustomCases: Boolean = proto
+            .propertyList
+            ?.any {
+                nameResolver.getString(it.name) == enumJsonCasesKey && nameResolver.getName(it.returnType.className).identifier == "kotlin/String"
+            } ?: false
+
+        return EnumMeta(element, meta, proto.enumEntryList, default, useCustomCases)
     }
 
     private fun generateDataClassKoder(targetType: ClassName, element: Element): Boolean {
@@ -508,13 +516,23 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                     .addParameter("reader", READER_TYPE)
                     .returns(targetType)
                     .apply {
-                        if (meta.defaultEntry != null)
-                            addStatement(
-                                "return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }",
-                                targetType
-                            )
-                        else
-                            addStatement("return enumValueOf<%T>(reader.readString())", targetType)
+                        if (meta.useCustomCases) {
+                            addStatement("val rawValue = reader.readString()")
+                            addStatement("val value = %T.values().firstOrNull { it.${enumJsonCasesKey} == rawValue }", targetType)
+                            if (meta.defaultEntry != null) {
+                                addStatement("return value ?: %1T.${nameResolver.getString(meta.defaultEntry.name)}", targetType)
+                            } else {
+                                addStatement("return value ?: throw KodableException(\"Can't decode enum value \\\"\${rawValue}\\\" for enum '%1T'\")", targetType)
+                            }
+                        } else {
+                            if (meta.defaultEntry != null)
+                                addStatement(
+                                    "return try { %1T.valueOf(reader.readString()) } catch (_: Exception) { %1T.${nameResolver.getString(meta.defaultEntry.name)} }",
+                                    targetType
+                                )
+                            else
+                                addStatement("return enumValueOf<%T>(reader.readString())", targetType)
+                        }
                     }
                     .build()
             )
@@ -622,7 +640,7 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
     private fun TypeSpec.writeToFileWithImports(targetType: ClassName, targetKodableType: ClassName) {
         val file = FileSpec
             .builder(targetKodableType.packageName(), targetKodableType.simpleName())
-            .addStaticImport("$packageName.core", "utils.propertyAssert", "readValueOrNull", "writeValueOrNull")
+            .addStaticImport("$packageName.core", "utils.propertyAssert", "types.KodableException", "readValueOrNull", "writeValueOrNull")
             .addStaticImport(READER_TYPE.packageName(), READER_TYPE.simpleName(), "objectProperty")
             .addType(this)
             .addFunction(extFunSpec(targetType, targetKodableType))
@@ -689,7 +707,12 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                 enkoderParams.forEachIndexed { index, prop ->
                     val propertyStatement = if (prop.nullable) "writeValueOrNull" else "writeValue"
                     val separator = if (index < enkoderParams.lastIndex) "," else ""
-                    addStatement("\tobjectProperty(\"${prop.jsonName}\", this@value.%N) { %T${prop.typeNesting}.$propertyStatement(this, this@value.%N) }$separator", prop.name, prop.koderType, prop.name)
+                    addStatement(
+                        "\tobjectProperty(\"${prop.jsonName}\", this@value.%N) { %T${prop.typeNesting}.$propertyStatement(this, this@value.%N) }$separator",
+                        prop.name,
+                        prop.koderType,
+                        prop.name
+                    )
                 }
                 addStatement(""")""")
                 addStatement("writer.iterateObject(properties)")
@@ -728,7 +751,7 @@ private val KotlinClassMetadata.proto
 private val KotlinClassMetadata.safeData
     get() = header(header)
 
-private fun header(header: KotlinClassHeader) : ClassData {
+private fun header(header: KotlinClassHeader): ClassData {
     return JvmProtoBufUtil.readClassDataFrom(header.data ?: header.incompatibleData!!, header.strings!!)
         .let { (nameResolver, proto) -> ClassData(nameResolver, proto) }
 }

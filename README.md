@@ -96,6 +96,8 @@ enum class Gender {
 Just assumes that enum's value name is equal to json enum value and
 presented as string.
 
+Also you can use custom mapping for enums - just define property with name "jsonValue". It will be used instead of enum values names.
+
 ```kotlin
 val female = Gender::class.kodable().dekode(""" "female" """)
 // female = Gender.female

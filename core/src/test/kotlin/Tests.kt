@@ -97,9 +97,10 @@ class SerializersTest : FunSpec({
 
     test("decoder: kodable path") {
         val path = ".data.items".kodablePath()
-        val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo" ] } } """, path)
+        val e = E::class.kodable().list.dekode(""" { "data" : { "items" : [ "a", "ooooo", "MainLogo" ] } } """, path)
         e[0].shouldBe(E.a)
         e[1].shouldBe(E.unknown)
+        e[2].shouldBe(E.logo)
     }
 
     test("encoder: nesting encoding") {
