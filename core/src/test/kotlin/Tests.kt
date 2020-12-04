@@ -208,6 +208,11 @@ class EncodingTests : FunSpec({
 
         ret.shouldBe("""{"camping_id":"321","distribution_id":"123","target_user_id":"2","Deeplink":"more://subscription/discount"}""")
     }
+
+    test("enum") {
+        val s = E::class.kodable().enkode(E.logo)
+        s.shouldBe("\"MainLogo\"")
+    }
 })
 
 class DecodingTests : FunSpec({
