@@ -542,7 +542,13 @@ class GenerateProcessor : KotlinAbstractProcessor(), KotlinMetadataUtils {
                     .addModifiers(OVERRIDE)
                     .addParameter("writer", WRITER_TYPE)
                     .addParameter("instance", targetType)
-                    .addStatement("return writer.writeString(instance.name)")
+                    .apply {
+                        if (meta.useCustomCases) {
+                            addStatement("return writer.writeString(instance.${enumJsonCasesKey})")
+                        } else {
+                            addStatement("return writer.writeString(instance.name)")
+                        }
+                    }
                     .build()
             )
             .build()
